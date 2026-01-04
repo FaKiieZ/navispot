@@ -149,6 +149,22 @@ export class NavidromeApiClient {
     return response.searchResult3?.song || [];
   }
 
+  async searchByISRC(isrc: string): Promise<NavidromeSong | null> {
+    const url = this._buildUrl('/rest/search3', {
+      query: isrc,
+      songCount: '10',
+    });
+
+    const response = await this._makeRequest<{
+      searchResult3: SearchResult3;
+    }>(url);
+
+    const songs = response.searchResult3?.song || [];
+    const match = songs.find((song) => song.isrc === isrc);
+
+    return match || null;
+  }
+
   private _buildUrl(
     endpoint: string,
     params: Record<string, string | string[] | undefined>
