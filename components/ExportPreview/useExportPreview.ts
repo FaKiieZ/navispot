@@ -5,9 +5,10 @@ import { UseExportPreviewReturn, MatchStatistics, ExportMode } from '@/types/exp
 
 interface UseExportPreviewProps {
   statistics: MatchStatistics;
+  existingPlaylists?: Array<{ id: string; name: string; songCount?: number }>;
 }
 
-export function useExportPreview({ statistics }: UseExportPreviewProps): UseExportPreviewReturn {
+export function useExportPreview({ statistics, existingPlaylists = [] }: UseExportPreviewProps): UseExportPreviewReturn {
   const [selectedMode, setSelectedMode] = useState<ExportMode>('create');
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | undefined>(undefined);
   const [skipUnmatched, setSkipUnmatched] = useState(false);

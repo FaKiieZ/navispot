@@ -7,6 +7,7 @@ import { NavidromeApiClient } from '@/lib/navidrome/client';
 import { SpotifyPlaylist } from '@/types/spotify';
 import { PlaylistCard } from './PlaylistCard';
 import { ProgressTracker, ProgressState } from '@/components/ProgressTracker';
+import { ResultsReport, ExportResult } from '@/components/ResultsReport';
 import { createBatchMatcher, BatchMatcherOptions } from '@/lib/matching/batch-matcher';
 import { createPlaylistExporter, PlaylistExporterOptions } from '@/lib/export/playlist-exporter';
 
@@ -17,10 +18,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progressState, setProgressState] = useState<ProgressState | null>(null);
-  const [exportResults, setExportResults] = useState<{
-    playlistName: string;
-    statistics: { matched: number; unmatched: number; exported: number; failed: number };
-  } | null>(null);
+  const [exportResult, setExportResult] = useState<ExportResult | null>(null);
 
   useEffect(() => {
     async function fetchPlaylists() {
@@ -87,7 +85,7 @@ export function Dashboard() {
 
     setLoading(true);
     setError(null);
-    setExportResults(null);
+    setExportResult(null);
 
     try {
       spotifyClient.setToken(spotify.token);
@@ -187,14 +185,19 @@ export function Dashboard() {
           },
         });
 
-        setExportResults({
+        setExportResult({
           playlistName: playlist.name,
+          timestamp: new Date(),
           statistics: {
-            matched: result.statistics.exported,
+            total: result.statistics.total,
+            matched: statistics.matched,
             unmatched: result.statistics.skipped,
+            ambiguous: statistics.ambiguous,
             exported: result.statistics.exported,
             failed: result.statistics.failed,
           },
+          matches: matches,
+          options: { mode: 'create', skipUnmatched: false },
         });
       }
     } catch (err) {
@@ -213,11 +216,22 @@ export function Dashboard() {
 
   const handleCancelExport = () => {
     setProgressState(null);
-    setExportResults(null);
+    setExportResult(null);
   };
 
   const handleCompleteExport = () => {
     setLoading(false);
+  };
+
+  const handleExportAgain = () => {
+    setProgressState(null);
+    setExportResult(null);
+    handleExport();
+  };
+
+  const handleBackToDashboard = () => {
+    setProgressState(null);
+    setExportResult(null);
   };
 
   if (!spotify.isAuthenticated) {
@@ -247,11 +261,13 @@ export function Dashboard() {
           onCancel={handleCancelExport}
           onComplete={handleCompleteExport}
         />
-        {exportResults && progressState.phase === 'completed' && (
-          <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-            <p className="text-sm text-green-700 dark:text-green-400">
-              Successfully exported {exportResults.statistics.exported} of {exportResults.statistics.matched + exportResults.statistics.unmatched} tracks to {exportResults.playlistName}
-            </p>
+        {exportResult && progressState.phase === 'completed' && (
+          <div className="mt-6">
+            <ResultsReport
+              result={exportResult}
+              onExportAgain={handleExportAgain}
+              onBackToDashboard={handleBackToDashboard}
+            />
           </div>
         )}
       </div>
