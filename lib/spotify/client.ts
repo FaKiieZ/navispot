@@ -1,5 +1,6 @@
-import { SpotifyPlaylistsResponse, SpotifyTracksResponse, SpotifyUser, SpotifyToken } from '@/types';
+import { SpotifyPlaylistsResponse, SpotifyTracksResponse, SpotifyUser, SpotifyToken, SpotifyPlaylist, SpotifyPlaylistTrack } from '@/types';
 import { encryptToken, decryptToken, isTokenExpired } from './token-storage';
+import { spotifyRateLimiter } from './rate-limiter';
 
 const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
 
@@ -15,20 +16,55 @@ class SpotifyClient {
   }
 
   async getCurrentUser(): Promise<SpotifyUser> {
+    await spotifyRateLimiter.acquire();
     const response = await this.fetch('/me');
     return response.json();
   }
 
   async getPlaylists(limit: number = 50, offset: number = 0): Promise<SpotifyPlaylistsResponse> {
+    await spotifyRateLimiter.acquire();
     const params = new URLSearchParams({ limit: limit.toString(), offset: offset.toString() });
     const response = await this.fetch(`/me/playlists?${params.toString()}`);
     return response.json();
   }
 
   async getPlaylistTracks(playlistId: string, limit: number = 100, offset: number = 0): Promise<SpotifyTracksResponse> {
+    await spotifyRateLimiter.acquire();
     const params = new URLSearchParams({ limit: limit.toString(), offset: offset.toString() });
     const response = await this.fetch(`/playlists/${playlistId}/tracks?${params.toString()}`);
     return response.json();
+  }
+
+  async getAllPlaylistTracks(playlistId: string): Promise<SpotifyPlaylistTrack[]> {
+    const allTracks: SpotifyPlaylistTrack[] = [];
+    let offset = 0;
+    const limit = 100;
+
+    while (true) {
+      const response = await this.getPlaylistTracks(playlistId, limit, offset);
+      allTracks.push(...response.items);
+
+      if (!response.next) break;
+      offset += limit;
+    }
+
+    return allTracks;
+  }
+
+  async getAllPlaylists(): Promise<SpotifyPlaylist[]> {
+    const allPlaylists: SpotifyPlaylist[] = [];
+    let offset = 0;
+    const limit = 50;
+
+    while (true) {
+      const response = await this.getPlaylists(limit, offset);
+      allPlaylists.push(...response.items);
+
+      if (!response.next) break;
+      offset += limit;
+    }
+
+    return allPlaylists;
   }
 
   async refreshAccessToken(): Promise<SpotifyToken | null> {
