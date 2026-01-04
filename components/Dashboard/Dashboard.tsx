@@ -9,6 +9,7 @@ import { PlaylistCard } from './PlaylistCard';
 import { ProgressTracker, ProgressState } from '@/components/ProgressTracker';
 import { ResultsReport, ExportResult } from '@/components/ResultsReport';
 import { createBatchMatcher, BatchMatcherOptions } from '@/lib/matching/batch-matcher';
+import { getMatchStatistics } from '@/lib/matching/orchestrator';
 import { createPlaylistExporter, PlaylistExporterOptions } from '@/lib/export/playlist-exporter';
 
 export function Dashboard() {
@@ -116,7 +117,7 @@ export function Dashboard() {
         });
         setProgressState(progress);
 
-        const { matches, statistics } = await batchMatcher.matchTracks(
+        const { matches } = await batchMatcher.matchTracks(
           tracks.map(t => t.track),
           matcherOptions,
           async (batchProgress) => {
@@ -133,16 +134,12 @@ export function Dashboard() {
                 total: batchProgress.total,
                 percent: batchProgress.percent,
               },
-              statistics: {
-                matched: statistics.matched,
-                unmatched: statistics.unmatched,
-                exported: 0,
-                failed: 0,
-              },
             });
             setProgressState({ ...progress });
           }
         );
+        
+        const statistics = getMatchStatistics(matches);
 
         progress = updateProgress(progress, {
           phase: 'exporting',

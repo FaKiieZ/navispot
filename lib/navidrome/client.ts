@@ -52,8 +52,17 @@ export class NavidromeApiClient {
     }
   }
 
+  private _getAuthParams(): Record<string, string> {
+    return {
+      u: this.username,
+      p: this.password,
+      v: '1.16.1',
+      c: 'navispot-plist',
+    };
+  }
+
   async getPlaylists(): Promise<NavidromePlaylist[]> {
-    const url = this._buildUrl('/rest/getPlaylists', {});
+    const url = this._buildUrl('/rest/getPlaylists', this._getAuthParams());
     const response = await this._makeRequest<{
       playlists: { playlist: NavidromePlaylist[] };
     }>(url);
@@ -69,7 +78,7 @@ export class NavidromeApiClient {
     playlist: NavidromePlaylist;
     tracks: NavidromeSong[];
   }> {
-    const url = this._buildUrl('/rest/getPlaylist', { id: playlistId });
+    const url = this._buildUrl('/rest/getPlaylist', { ...this._getAuthParams(), id: playlistId });
     const response = await this._makeRequest<{
       playlist: NavidromePlaylist;
       playlistEntry: NavidromeSong[];
@@ -85,7 +94,7 @@ export class NavidromeApiClient {
     id: string;
     success: boolean;
   }> {
-    const params: Record<string, string | string[]> = { name };
+    const params: Record<string, string | string[]> = { ...this._getAuthParams(), name };
     if (songIds.length > 0) {
       params.songId = songIds;
     }
@@ -107,7 +116,7 @@ export class NavidromeApiClient {
     songIdsToAdd: string[],
     songIdsToRemove?: number[]
   ): Promise<{ success: boolean }> {
-    const params: Record<string, string | string[]> = { id: playlistId };
+    const params: Record<string, string | string[]> = { ...this._getAuthParams(), id: playlistId };
     
     if (songIdsToAdd.length > 0) {
       params.songIdToAdd = songIdsToAdd;
@@ -127,7 +136,7 @@ export class NavidromeApiClient {
     const playlistData = await this.getPlaylist(playlistId);
     const entryIdsToRemove = playlistData.tracks.map((_, index) => index + 1);
 
-    const params: Record<string, string | string[]> = { id: playlistId };
+    const params: Record<string, string | string[]> = { ...this._getAuthParams(), id: playlistId };
     
     if (newSongIds.length > 0) {
       params.songIdToAdd = newSongIds;
@@ -151,7 +160,7 @@ export class NavidromeApiClient {
     artistOffset?: number;
     albumOffset?: number;
   }): Promise<NavidromeSong[]> {
-    const params: Record<string, string | string[]> = { query };
+    const params: Record<string, string | string[]> = { ...this._getAuthParams(), query };
 
     if (options?.songCount !== undefined) {
       params.songCount = String(options.songCount);
@@ -182,6 +191,7 @@ export class NavidromeApiClient {
 
   async searchByISRC(isrc: string): Promise<NavidromeSong | null> {
     const url = this._buildUrl('/rest/search3', {
+      ...this._getAuthParams(),
       query: isrc,
       songCount: '10',
     });

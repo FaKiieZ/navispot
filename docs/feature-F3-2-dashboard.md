@@ -171,3 +171,20 @@ npm run lint
   - `mosaic.scdn.co`
 
 **Fallback Behavior**: When playlist has no images or images is null, displays `/file.svg` placeholder.
+
+### Temporal Dead Zone Error (2026-01-04)
+
+**Issue**: During export, the UI showed error "Export failed. can't access lexical declaration 'l' before initialization" after matching tracks successfully.
+
+**Root Cause**: In `components/Dashboard/Dashboard.tsx`, the `statistics` variable was destructured inside the progress callback passed to `matchTracks()`. The callback was executed during the `await` call, but `statistics` was only assigned after `await` completed, causing a TDZ error when the callback tried to access `statistics.matched`.
+
+**Fix Applied**:
+- `components/Dashboard/Dashboard.tsx:12`: Added import for `getMatchStatistics` from orchestrator
+- `components/Dashboard/Dashboard.tsx:120-142`: Changed destructuring to separate statement:
+  ```typescript
+  const { matches } = await batchMatcher.matchTracks(...);
+  const statistics = getMatchStatistics(matches);
+  ```
+- Removed `statistics` access from the progress callback since it wasn't needed there anyway
+
+**Result**: Export progress tracking now works correctly without TDZ errors.
