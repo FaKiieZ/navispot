@@ -183,10 +183,10 @@ export class NavidromeApiClient {
 
     const url = this._buildUrl('/rest/search3', params);
     const response = await this._makeRequest<{
-      searchResult3: SearchResult3;
+      'subsonic-response': { searchResult3: SearchResult3 };
     }>(url);
 
-    return response.searchResult3?.song || [];
+    return response['subsonic-response']?.searchResult3?.song || [];
   }
 
   async searchByISRC(isrc: string): Promise<NavidromeSong | null> {
@@ -197,11 +197,11 @@ export class NavidromeApiClient {
     });
 
     const response = await this._makeRequest<{
-      searchResult3: SearchResult3;
+      'subsonic-response': { searchResult3: SearchResult3 };
     }>(url);
 
-    const songs = response.searchResult3?.song || [];
-    const match = songs.find((song) => song.isrc === isrc);
+    const songs = response['subsonic-response']?.searchResult3?.song || [];
+    const match = songs.find((song) => song.isrc?.includes(isrc));
 
     return match || null;
   }

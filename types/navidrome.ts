@@ -4,7 +4,7 @@ export interface NavidromeSong {
   artist: string;
   album: string;
   duration: number;
-  isrc?: string;
+  isrc?: string[];
 }
 
 export interface NavidromePlaylist {
