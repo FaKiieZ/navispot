@@ -35,10 +35,12 @@ export class NavidromeApiClient {
         v: '1.16.1',
         c: 'navispot-plist',
       });
-      const response = await this._makeRequest<{ status: string; version: string; serverVersion?: string }>(url);
+      const response = await this._makeRequest<Record<string, unknown>>(url);
       
-      if (response.status === 'ok') {
-        return { success: true, serverVersion: response.serverVersion };
+      const responseData = (response as Record<string, unknown>)['subsonic-response'] || response;
+      
+      if ((responseData as { status?: string }).status === 'ok') {
+        return { success: true, serverVersion: (responseData as { serverVersion?: string }).serverVersion };
       }
       
       return { success: false, error: 'Ping failed' };

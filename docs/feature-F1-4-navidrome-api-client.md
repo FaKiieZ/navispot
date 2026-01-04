@@ -250,6 +250,19 @@ async updatePlaylist(
 
 ## Bug Fixes
 
+### January 4, 2026 - Subsonic Response Parsing Fix
+
+Fixed a bug where the ping method incorrectly reported "Ping failed" even when the Navidrome server returned a successful response:
+
+1. **Subsonic Response Wrapper**: The Subsonic API wraps all responses in a `subsonic-response` object. The response structure is:
+   ```json
+   {"subsonic-response":{"status":"ok","version":"1.16.1","type":"navidrome","serverVersion":"0.59.0","openSubsonic":true}}
+   ```
+
+2. **Bug**: The ping method was checking `response.status` directly, which was `undefined` on the wrapped response, causing it to always return "Ping failed" even for successful connections.
+
+3. **Solution**: Modified the ping method to extract data from the `subsonic-response` wrapper if present, otherwise use the response directly. This ensures the code works with both wrapped and unwrapped response formats.
+
 ### January 4, 2026 - Subsonic API Parameter and JSON Response Fixes
 
 Fixed two issues that prevented successful Navidrome connection:
