@@ -439,10 +439,9 @@ The code passes all ESLint checks with the project's configuration. This include
 **Last Updated:** January 4, 2026
 
 **Update Notes (January 4, 2026):**
-- Fixed ISRC matching bug where Navidrome API doesn't accept ISRC as search query
+- Implemented ISRC check on search results instead of separate API call (Navidrome API doesn't accept ISRC as search query)
 - Implemented multi-step search approach (title only → title + first artist → title + all artists)
 - Added `normalizeTitleForSearch()` function to strip parentheses and special characters
 - Added duration-based matching (delta < 2 seconds) as fallback in Search 2
-- Changed ISRC matching to check on search results instead of separate API call
 - Removed `searchByISRC` method from NavidromeApiClient
 - Updated matching flow to integrate ISRC/duration checks directly in orchestrator
