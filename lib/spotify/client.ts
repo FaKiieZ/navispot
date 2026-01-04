@@ -1,0 +1,119 @@
+import { SpotifyPlaylistsResponse, SpotifyTracksResponse, SpotifyUser, SpotifyToken } from '@/types';
+import { encryptToken, decryptToken, isTokenExpired } from './token-storage';
+
+const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
+
+class SpotifyClient {
+  private token: SpotifyToken | null = null;
+
+  setToken(token: SpotifyToken): void {
+    this.token = token;
+  }
+
+  getToken(): SpotifyToken | null {
+    return this.token;
+  }
+
+  async getCurrentUser(): Promise<SpotifyUser> {
+    const response = await this.fetch('/me');
+    return response.json();
+  }
+
+  async getPlaylists(limit: number = 50, offset: number = 0): Promise<SpotifyPlaylistsResponse> {
+    const params = new URLSearchParams({ limit: limit.toString(), offset: offset.toString() });
+    const response = await this.fetch(`/me/playlists?${params.toString()}`);
+    return response.json();
+  }
+
+  async getPlaylistTracks(playlistId: string, limit: number = 100, offset: number = 0): Promise<SpotifyTracksResponse> {
+    const params = new URLSearchParams({ limit: limit.toString(), offset: offset.toString() });
+    const response = await this.fetch(`/playlists/${playlistId}/tracks?${params.toString()}`);
+    return response.json();
+  }
+
+  async refreshAccessToken(): Promise<SpotifyToken | null> {
+    if (!this.token?.refreshToken) return null;
+
+    try {
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: this.token.refreshToken }),
+      });
+
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      const newToken: SpotifyToken = {
+        accessToken: data.access_token,
+        refreshToken: this.token.refreshToken,
+        expiresAt: Date.now() + data.expires_in * 1000,
+        tokenType: data.token_type,
+        scope: data.scope,
+      };
+
+      this.setToken(newToken);
+      await this.persistToken(newToken);
+      return newToken;
+    } catch {
+      return null;
+    }
+  }
+
+  private async fetch(endpoint: string, options: RequestInit = {}): Promise<Response> {
+    if (!this.token) {
+      throw new Error('No access token available');
+    }
+
+    if (isTokenExpired(this.token)) {
+      const refreshed = await this.refreshAccessToken();
+      if (!refreshed) {
+        throw new Error('Token expired and refresh failed');
+      }
+    }
+
+    const response = await fetch(`${SPOTIFY_API_BASE}${endpoint}`, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${this.token.accessToken}`,
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+
+    if (response.status === 401) {
+      const refreshed = await this.refreshAccessToken();
+      if (refreshed) {
+        return this.fetch(endpoint, options);
+      }
+    }
+
+    return response;
+  }
+
+  async persistToken(token: SpotifyToken): Promise<void> {
+    const encrypted = await encryptToken(token);
+    localStorage.setItem('spotify_token', encrypted);
+  }
+
+  async loadToken(): Promise<SpotifyToken | null> {
+    const encrypted = localStorage.getItem('spotify_token');
+    if (!encrypted) return null;
+
+    const token = await decryptToken(encrypted);
+    if (token && isTokenExpired(token)) {
+      const refreshed = await this.refreshAccessToken();
+      return refreshed;
+    }
+
+    this.token = token;
+    return token;
+  }
+
+  clearToken(): void {
+    this.token = null;
+    localStorage.removeItem('spotify_token');
+  }
+}
+
+export const spotifyClient = new SpotifyClient();
