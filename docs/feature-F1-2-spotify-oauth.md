@@ -79,7 +79,7 @@ Created comprehensive API client with token management:
 Initiates OAuth flow:
 - Generates PKCE code verifier and challenge
 - Creates state parameter for CSRF protection
-- Sets secure cookies for code verifier
+- Sets secure cookies for code verifier and state
 - Returns authorization URL to client
 
 #### `app/api/auth/callback/route.ts`
@@ -103,9 +103,10 @@ Refreshes access tokens:
 
 ### OAuth Flow Security
 1. **PKCE Protection**: All OAuth flows use PKCE to prevent code interception
-2. **State Validation**: State parameter validated against cookies to prevent CSRF
-3. **Secure Cookies**: Tokens stored in httpOnly, secure, sameSite cookies
-4. **Server-Side Token Exchange**: Token exchange happens on server, not client
+2. **State Validation**: State parameter validated against `spotify_auth_state` cookie to prevent CSRF attacks
+3. **Code Verifier Validation**: PKCE code verifier validated against `spotify_code_verifier` cookie
+4. **Secure Cookies**: Tokens stored in httpOnly, secure, sameSite cookies
+5. **Server-Side Token Exchange**: Token exchange happens on server, not client
 
 ### Token Storage Security
 1. **Encryption at Rest**: Tokens encrypted before localStorage
@@ -147,6 +148,7 @@ Initiates Spotify OAuth flow.
 
 **Cookies Set:**
 - `spotify_code_verifier`: PKCE code verifier (httpOnly, 10 min expiry)
+- `spotify_auth_state`: State parameter for CSRF validation (httpOnly, 10 min expiry)
 
 ### GET /api/auth/callback
 Handles OAuth callback from Spotify.
