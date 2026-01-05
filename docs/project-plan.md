@@ -216,77 +216,6 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 ## Dashboard UI Specification
 
-### Layout Overview
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                                                                     │
-│  ┌────────────────────────────┐  ┌──────────────────────────────┐  │
-│  │                            │  │                              │  │
-│  │      LEFT PANEL            │  │       RIGHT PANEL            │  │
-│  │                            │  │                              │  │
-│  │  Cover Art Grid            │  │  Stacked Track Tables        │  │
-│  │  (no text overlay)         │  │  with visual dividers        │  │
-│  │                            │  │                              │  │
-│  │  2×2, 3×3, or 4×4 grid     │  │  Columns:                    │  │
-│  │  based on selection count  │  │  - Song Title                │  │
-│  │                            │  │  - Artist Name               │  │
-│  │  Click cover →             │  │  - Album Name                │  │
-│  │  scrolls to tracks         │  │  - Date Added                │  │
-│  │                            │  │                              │  │
-│  └────────────────────────────┘  └──────────────────────────────┘  │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  PLAYLIST DATA TABLE                                               │
-│                                                                     │
-│  Columns:                                                          │
-│  - ☐ Checkbox (select playlists)                                   │
-│  - Cover Art (thumbnail)                                           │
-│  - Playlist Name                                                   │
-│  - Owner Name                                                      │
-│  - Saves (follower count)                                          │
-│  - Duration                                                        │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  FIXED FOOTER                                                      │
-│                                                                     │
-│  number of playlists to be exported: 2    [export playlist(s)]     │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### Left Panel: Cover Art Grid
-
-| Element | Description |
-|---------|-------------|
-| **Content** | Grid of playlist cover images (no text overlay) |
-| **Grid Size** | 2×2 for 1-4 playlists, 3×3 for 5-9, 4×4 for 10-16 |
-| **Interaction** | Click cover to scroll right panel to corresponding tracks |
-| **Empty Cells** | Blank (no placeholder) |
-
-### Cover Grid Sizing
-
-| Playlists Selected | Grid Size | Empty Cells |
-|-------------------|-----------|-------------|
-| 1-4 | 2×2 | 4-n |
-| 5-9 | 3×3 | 9-n |
-| 10-16 | 4×4 | 16-n |
-
-### Right Panel: Stacked Track Tables
-
-| Column | Description |
-|--------|-------------|
-| Song Title | Track name |
-| Artist Name | Primary artist |
-| Album Name | Album title |
-| Date Added | When track was added to playlist |
-
-- Multiple playlists shown as stacked tables
-- Visual dividers between playlists
-- Smooth scroll to specific playlist when cover is clicked
-
 ### Playlist Data Table
 
 | Column | Description |
@@ -294,21 +223,97 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 | ☐ | Checkbox for multi-select |
 | Cover Art | Thumbnail (50×50px) |
 | Playlist Name | Title of playlist |
+| Number of Tracks | Total track count |
 | Owner Name | Creator username |
 | Saves | Follower/like count from Spotify |
 | Duration | Total duration (e.g., "1h 23m") |
 
-### Fixed Footer
+#### Visual Representation
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────┐
+│  PLAYLIST DATA TABLE                                                                │
+├────────────────────────────────────────────────────────────────────────────────────┤
+│  ☐    │  <img>  │  Playlist Name        │  # Tracks │  Owner Name    │  Saves    │  Duration  │
+├───────┼─────────┼───────────────────────┼───────────┼────────────────┼───────────┼────────────┤
+│  ☑    │  <img>  │  Synthwave Mix 2024   │    142    │  DJ Neon       │  2,431    │  2h 15m    │
+├───────┼─────────┼───────────────────────┼───────────┼────────────────┼───────────┼────────────┤
+│  ☑    │  <img>  │  Morning Coffee       │     87    │  sarah_music   │  15.8k    │  45m       │
+├───────┼─────────┼───────────────────────┼───────────┼────────────────┼───────────┼────────────┤
+│  ☐    │  <img>  │  Rock Classics Vol.5  │    203    │  metalhead99   │  8,762    │  3h 42m    │
+├───────┼─────────┼───────────────────────┼───────────┼────────────────┼───────────┼────────────┤
+│  ☐    │  <img>  │  Lo-Fi Study Beats    │     56    │  chill_guy     │  45.2k    │  1h 30m    │
+└────────────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                    │
+│  number of playlists to be exported: 2           [ EXPORT PLAYLIST(S) ]            │
+│                                                                                    │
+└────────────────────────────────────────────────────────────────────────────────────┘
+                              ↑ Fixed Footer (position: fixed, bottom: 0)
+```
+
+#### Column Layout (7 columns)
+
+| # | Column | Content | Example |
+|---|--------|---------|---------|
+| 1 | Checkbox | Selection state (☐/☑) | ☑ |
+| 2 | Cover Art | Thumbnail image (50×50px) | playlist-cover.jpg |
+| 3 | Playlist Name | Title of playlist | Synthwave Mix 2024 |
+| 4 | Number of Tracks | Total track count | 142 |
+| 5 | Owner Name | Creator username | DJ Neon |
+| 6 | Saves | Follower/like count | 2,431 |
+| 7 | Duration | Total duration | 2h 15m |
+
+### Fixed Footer (Position: Fixed)
 
 | Position | Content |
 |----------|---------|
 | Left | `number of playlists to be exported: {n}` |
 | Right | `[export playlist(s)]` CTA button |
 
-- Fixed at bottom of viewport
+- Fixed at bottom of viewport (position: fixed; bottom: 0)
 - Button disabled when n=0
 - No Select All checkbox (individual selection only)
 - No filters or search in footer
+
+### Export State Transition
+
+When export begins, the Playlist Data Table transforms to show real-time progress:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────┐
+│  PLAYLIST DATA TABLE (Export Mode)                                                 │
+├────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                    │
+│  Now Exporting: Synthwave Mix 2024                                                │
+│  [█████████████████████████████....] 73%                                           │
+│                                                                                    │
+│  Matched: 138  │  Unmatched: 4  │  Total: 142                                     │
+│                                                                                    │
+└────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+| Element | Description |
+|---------|-------------|
+| Header | Shows current playlist being exported |
+| Progress Bar | Visual progress with percentage indicator |
+| Matched | Count of successfully matched tracks |
+| Unmatched | Count of tracks with no match |
+| Total | Total tracks in current playlist |
+
+#### Export State Elements
+
+| State | Element | Description |
+|-------|---------|-------------|
+| Pre-Export | Checkbox | Select/deselect playlist for export |
+| Pre-Export | Playlist Name | Display name of playlist |
+| Pre-Export | Track metadata | Owner, saves, duration, track count |
+| During Export | Now Exporting | Current playlist name |
+| During Export | Progress Bar | Visual progress (matched/total ratio) |
+| During Export | Matched | Count of matched tracks |
+| During Export | Unmatched | Count of unmatched tracks |
+| During Export | Total | Total tracks to export |
 
 ### Interactions
 
