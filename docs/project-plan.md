@@ -214,6 +214,121 @@ SPOTIFY_REDIRECT_URI=http://localhost:3000/api/auth/callback
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
+## Dashboard UI Specification
+
+### Layout Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│  ┌────────────────────────────┐  ┌──────────────────────────────┐  │
+│  │                            │  │                              │  │
+│  │      LEFT PANEL            │  │       RIGHT PANEL            │  │
+│  │                            │  │                              │  │
+│  │  Cover Art Grid            │  │  Stacked Track Tables        │  │
+│  │  (no text overlay)         │  │  with visual dividers        │  │
+│  │                            │  │                              │  │
+│  │  2×2, 3×3, or 4×4 grid     │  │  Columns:                    │  │
+│  │  based on selection count  │  │  - Song Title                │  │
+│  │                            │  │  - Artist Name               │  │
+│  │  Click cover →             │  │  - Album Name                │  │
+│  │  scrolls to tracks         │  │  - Date Added                │  │
+│  │                            │  │                              │  │
+│  └────────────────────────────┘  └──────────────────────────────┘  │
+│                                                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  PLAYLIST DATA TABLE                                               │
+│                                                                     │
+│  Columns:                                                          │
+│  - ☐ Checkbox (select playlists)                                   │
+│  - Cover Art (thumbnail)                                           │
+│  - Playlist Name                                                   │
+│  - Owner Name                                                      │
+│  - Saves (follower count)                                          │
+│  - Duration                                                        │
+│                                                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  FIXED FOOTER                                                      │
+│                                                                     │
+│  number of playlists to be exported: 2    [export playlist(s)]     │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Left Panel: Cover Art Grid
+
+| Element | Description |
+|---------|-------------|
+| **Content** | Grid of playlist cover images (no text overlay) |
+| **Grid Size** | 2×2 for 1-4 playlists, 3×3 for 5-9, 4×4 for 10-16 |
+| **Interaction** | Click cover to scroll right panel to corresponding tracks |
+| **Empty Cells** | Blank (no placeholder) |
+
+### Cover Grid Sizing
+
+| Playlists Selected | Grid Size | Empty Cells |
+|-------------------|-----------|-------------|
+| 1-4 | 2×2 | 4-n |
+| 5-9 | 3×3 | 9-n |
+| 10-16 | 4×4 | 16-n |
+
+### Right Panel: Stacked Track Tables
+
+| Column | Description |
+|--------|-------------|
+| Song Title | Track name |
+| Artist Name | Primary artist |
+| Album Name | Album title |
+| Date Added | When track was added to playlist |
+
+- Multiple playlists shown as stacked tables
+- Visual dividers between playlists
+- Smooth scroll to specific playlist when cover is clicked
+
+### Playlist Data Table
+
+| Column | Description |
+|--------|-------------|
+| ☐ | Checkbox for multi-select |
+| Cover Art | Thumbnail (50×50px) |
+| Playlist Name | Title of playlist |
+| Owner Name | Creator username |
+| Saves | Follower/like count from Spotify |
+| Duration | Total duration (e.g., "1h 23m") |
+
+### Fixed Footer
+
+| Position | Content |
+|----------|---------|
+| Left | `number of playlists to be exported: {n}` |
+| Right | `[export playlist(s)]` CTA button |
+
+- Fixed at bottom of viewport
+- Button disabled when n=0
+- No Select All checkbox (individual selection only)
+- No filters or search in footer
+
+### Interactions
+
+| Action | Result |
+|--------|--------|
+| Click playlist checkbox | Adds/removes from selection, updates cover grid and track tables |
+| Click cover art | Right panel scrolls to corresponding track table |
+| Click table row | Right panel scrolls to corresponding track table |
+| Click Export button | Opens export preview modal |
+
+### Design Decisions
+
+1. **No text overlay** on cover art (images only)
+2. **No Select All checkbox** (individual selection)
+3. **No filters/search** in footer (minimal design)
+4. **Scroll-based navigation** (no zoom/scale animations)
+5. **No placeholder images** in empty grid cells
+
+---
+
 ## Security Considerations
 
 - Spotify tokens: Encrypt before storing in localStorage
