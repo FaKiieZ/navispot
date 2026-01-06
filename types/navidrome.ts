@@ -55,6 +55,8 @@ export interface NavidromeNativeSong {
   };
   createdAt?: string;
   updatedAt?: string;
+  starred?: boolean;
+  starredAt?: string;
 }
 
 export interface NavidromeNativeArtist {

@@ -4,13 +4,36 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { spotifyClient } from '@/lib/spotify/client';
 import { NavidromeApiClient } from '@/lib/navidrome/client';
-import { SpotifyPlaylist } from '@/types/spotify';
+import { SpotifyPlaylist, SpotifyTrack } from '@/types/spotify';
 import { PlaylistCard } from './PlaylistCard';
 import { ProgressTracker, ProgressState } from '@/components/ProgressTracker';
 import { ResultsReport, ExportResult } from '@/components/ResultsReport';
 import { createBatchMatcher, BatchMatcherOptions } from '@/lib/matching/batch-matcher';
 import { getMatchStatistics } from '@/lib/matching/orchestrator';
 import { createPlaylistExporter, PlaylistExporterOptions } from '@/lib/export/playlist-exporter';
+import { createFavoritesExporter } from '@/lib/export/favorites-exporter';
+import { FavoritesExportResult } from '@/types/favorites';
+
+interface PlaylistItem {
+  id: string;
+  name: string;
+  description?: string;
+  images: { url: string }[];
+  owner: { id: string; display_name: string };
+  tracks: { total: number };
+  snapshot_id?: string;
+  isLikedSongs?: boolean;
+}
+
+const LIKED_SONGS_ITEM: PlaylistItem = {
+  id: 'liked-songs',
+  name: 'Liked Songs',
+  description: 'Your liked tracks from Spotify',
+  images: [{ url: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23E91E63"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' }],
+  owner: { id: 'user', display_name: 'You' },
+  tracks: { total: 0 },
+  isLikedSongs: true,
+};
 
 export function Dashboard() {
   const { spotify, navidrome } = useAuth();
@@ -20,9 +43,10 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [progressState, setProgressState] = useState<ProgressState | null>(null);
   const [exportResult, setExportResult] = useState<ExportResult | null>(null);
+  const [likedSongsCount, setLikedSongsCount] = useState<number>(0);
 
   useEffect(() => {
-    async function fetchPlaylists() {
+    async function fetchData() {
       if (!spotify.isAuthenticated || !spotify.token) {
         setError(null);
         return;
@@ -35,6 +59,13 @@ export function Dashboard() {
         spotifyClient.setToken(spotify.token);
         const fetchedPlaylists = await spotifyClient.getAllPlaylists();
         setPlaylists(fetchedPlaylists);
+
+        try {
+          const count = await spotifyClient.getSavedTracksCount();
+          setLikedSongsCount(count);
+        } catch {
+          setLikedSongsCount(0);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch playlists');
       } finally {
@@ -42,7 +73,7 @@ export function Dashboard() {
       }
     }
 
-    fetchPlaylists();
+    fetchData();
   }, [spotify.isAuthenticated, spotify.token]);
 
   const handleToggle = (playlistId: string) => {
@@ -79,8 +110,16 @@ export function Dashboard() {
       return;
     }
 
+    const hasLikedSongs = selectedIds.has('liked-songs');
     const selectedPlaylists = playlists.filter(p => selectedIds.has(p.id));
-    if (selectedPlaylists.length === 0) {
+    const itemsToExport: (PlaylistItem | SpotifyPlaylist)[] = [];
+
+    if (hasLikedSongs) {
+      itemsToExport.push({ ...LIKED_SONGS_ITEM, tracks: { total: likedSongsCount } });
+    }
+    itemsToExport.push(...selectedPlaylists);
+
+    if (itemsToExport.length === 0) {
       return;
     }
 
@@ -100,6 +139,7 @@ export function Dashboard() {
 
       const batchMatcher = createBatchMatcher(spotifyClient, navidromeClient);
       const playlistExporter = createPlaylistExporter(navidromeClient);
+      const favoritesExporter = createFavoritesExporter(navidromeClient);
 
       const matcherOptions: BatchMatcherOptions = {
         enableISRC: true,
@@ -108,19 +148,28 @@ export function Dashboard() {
         fuzzyThreshold: 0.8,
       };
 
-      for (const playlist of selectedPlaylists) {
+      for (const item of itemsToExport) {
         let progress = createInitialProgressState(0);
-
         setProgressState(progress);
 
-        const tracks = await spotifyClient.getAllPlaylistTracks(playlist.id);
+        let tracks: SpotifyTrack[];
+        let isLikedSongs = false;
+
+        if ('isLikedSongs' in item && item.isLikedSongs) {
+          const savedTracks = await spotifyClient.getAllSavedTracks();
+          tracks = savedTracks.map(t => t.track);
+          isLikedSongs = true;
+        } else {
+          tracks = (await spotifyClient.getAllPlaylistTracks(item.id)).map(t => t.track);
+        }
+
         progress = updateProgress(progress, {
           progress: { current: 0, total: tracks.length, percent: 0 },
         });
         setProgressState(progress);
 
         const { matches } = await batchMatcher.matchTracks(
-          tracks.map(t => t.track),
+          tracks,
           matcherOptions,
           async (batchProgress) => {
             progress = updateProgress(progress, {
@@ -140,7 +189,7 @@ export function Dashboard() {
             setProgressState({ ...progress });
           }
         );
-        
+
         const statistics = getMatchStatistics(matches);
 
         progress = updateProgress(progress, {
@@ -149,55 +198,104 @@ export function Dashboard() {
         });
         setProgressState(progress);
 
-        const exporterOptions: PlaylistExporterOptions = {
-          mode: 'create',
-          skipUnmatched: false,
-          onProgress: async (exportProgress) => {
-            progress = updateProgress(progress, {
-              phase: exportProgress.status === 'completed' ? 'completed' : 'exporting',
-              progress: {
-                current: exportProgress.current,
-                total: exportProgress.total,
-                percent: exportProgress.percent,
-              },
-              statistics: {
-                matched: statistics.matched,
-                unmatched: statistics.unmatched,
-                exported: exportProgress.current,
-                failed: 0,
-              },
-            });
-            setProgressState({ ...progress });
-          },
-        };
+        if (isLikedSongs) {
+          const result = await favoritesExporter.exportFavorites(matches, {
+            skipUnmatched: false,
+            onProgress: async (exportProgress) => {
+              progress = updateProgress(progress, {
+                phase: exportProgress.status === 'completed' ? 'completed' : 'exporting',
+                progress: {
+                  current: exportProgress.current,
+                  total: exportProgress.total,
+                  percent: exportProgress.percent,
+                },
+                statistics: {
+                  matched: statistics.matched,
+                  unmatched: statistics.unmatched + statistics.ambiguous,
+                  exported: exportProgress.current,
+                  failed: 0,
+                },
+              });
+              setProgressState({ ...progress });
+            },
+          });
 
-        const result = await playlistExporter.exportPlaylist(playlist.name, matches, exporterOptions);
+          setProgressState({
+            phase: 'completed',
+            progress: { current: matches.length, total: matches.length, percent: 100 },
+            statistics: {
+              matched: result.statistics.starred,
+              unmatched: result.statistics.skipped,
+              exported: result.statistics.starred,
+              failed: result.statistics.failed,
+            },
+          });
 
-        setProgressState({
-          phase: 'completed',
-          progress: { current: result.statistics.total, total: result.statistics.total, percent: 100 },
-          statistics: {
-            matched: result.statistics.exported,
-            unmatched: result.statistics.skipped,
-            exported: result.statistics.exported,
-            failed: result.statistics.failed,
-          },
-        });
+          setExportResult({
+            playlistName: item.name,
+            timestamp: new Date(),
+            statistics: {
+              total: result.statistics.total,
+              matched: statistics.matched,
+              unmatched: result.statistics.skipped,
+              ambiguous: statistics.ambiguous,
+              exported: result.statistics.starred,
+              failed: result.statistics.failed,
+            },
+            matches: matches,
+            options: { mode: 'create', skipUnmatched: false },
+          });
+        } else {
+          const exporterOptions: PlaylistExporterOptions = {
+            mode: 'create',
+            skipUnmatched: false,
+            onProgress: async (exportProgress) => {
+              progress = updateProgress(progress, {
+                phase: exportProgress.status === 'completed' ? 'completed' : 'exporting',
+                progress: {
+                  current: exportProgress.current,
+                  total: exportProgress.total,
+                  percent: exportProgress.percent,
+                },
+                statistics: {
+                  matched: statistics.matched,
+                  unmatched: statistics.unmatched,
+                  exported: exportProgress.current,
+                  failed: 0,
+                },
+              });
+              setProgressState({ ...progress });
+            },
+          };
 
-        setExportResult({
-          playlistName: playlist.name,
-          timestamp: new Date(),
-          statistics: {
-            total: result.statistics.total,
-            matched: statistics.matched,
-            unmatched: result.statistics.skipped,
-            ambiguous: statistics.ambiguous,
-            exported: result.statistics.exported,
-            failed: result.statistics.failed,
-          },
-          matches: matches,
-          options: { mode: 'create', skipUnmatched: false },
-        });
+          const result = await playlistExporter.exportPlaylist(item.name, matches, exporterOptions);
+
+          setProgressState({
+            phase: 'completed',
+            progress: { current: result.statistics.total, total: result.statistics.total, percent: 100 },
+            statistics: {
+              matched: result.statistics.exported,
+              unmatched: result.statistics.skipped,
+              exported: result.statistics.exported,
+              failed: result.statistics.failed,
+            },
+          });
+
+          setExportResult({
+            playlistName: item.name,
+            timestamp: new Date(),
+            statistics: {
+              total: result.statistics.total,
+              matched: statistics.matched,
+              unmatched: result.statistics.skipped,
+              ambiguous: statistics.ambiguous,
+              exported: result.statistics.exported,
+              failed: result.statistics.failed,
+            },
+            matches: matches,
+            options: { mode: 'create', skipUnmatched: false },
+          });
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Export failed';
@@ -289,10 +387,10 @@ export function Dashboard() {
     );
   }
 
-  if (playlists.length === 0) {
+  if (playlists.length === 0 && likedSongsCount === 0) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
-        <p className="text-gray-500">No playlists found.</p>
+        <p className="text-gray-500">No playlists or saved tracks found.</p>
       </div>
     );
   }
@@ -311,6 +409,12 @@ export function Dashboard() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <PlaylistCard
+          key={LIKED_SONGS_ITEM.id}
+          playlist={{ ...LIKED_SONGS_ITEM, tracks: { total: likedSongsCount } } as SpotifyPlaylist}
+          isSelected={selectedIds.has(LIKED_SONGS_ITEM.id)}
+          onToggle={() => handleToggle(LIKED_SONGS_ITEM.id)}
+        />
         {playlists.map((playlist) => (
           <PlaylistCard
             key={playlist.id}

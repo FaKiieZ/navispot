@@ -26,4 +26,5 @@ export const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
 export const SPOTIFY_SCOPES = [
   'playlist-read-private',
   'playlist-read-collaborative',
+  'user-library-read',
 ];

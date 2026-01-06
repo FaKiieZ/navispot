@@ -1,4 +1,4 @@
-import { SpotifyPlaylistsResponse, SpotifyTracksResponse, SpotifyUser, SpotifyToken, SpotifyPlaylist, SpotifyPlaylistTrack } from '@/types';
+import { SpotifyPlaylistsResponse, SpotifyTracksResponse, SpotifyUser, SpotifyToken, SpotifyPlaylist, SpotifyPlaylistTrack, SpotifySavedTracksResponse, SpotifySavedTrack } from '@/types';
 import { encryptToken, decryptToken, isTokenExpired } from './token-storage';
 import { spotifyRateLimiter } from './rate-limiter';
 
@@ -49,6 +49,36 @@ export class SpotifyClient {
     }
 
     return allTracks;
+  }
+
+  async getSavedTracks(limit: number = 50, offset: number = 0): Promise<SpotifySavedTracksResponse> {
+    await spotifyRateLimiter.acquire();
+    const params = new URLSearchParams({ limit: limit.toString(), offset: offset.toString() });
+    const response = await this.fetch(`/me/tracks?${params.toString()}`);
+    return response.json();
+  }
+
+  async getAllSavedTracks(): Promise<SpotifySavedTrack[]> {
+    const allTracks: SpotifySavedTrack[] = [];
+    let offset = 0;
+    const limit = 50;
+
+    while (true) {
+      const response = await this.getSavedTracks(limit, offset);
+      allTracks.push(...response.items);
+
+      if (!response.next) break;
+      offset += limit;
+    }
+
+    return allTracks;
+  }
+
+  async getSavedTracksCount(): Promise<number> {
+    await spotifyRateLimiter.acquire();
+    const response = await this.fetch('/me/tracks?limit=1');
+    const data: SpotifySavedTracksResponse = await response.json();
+    return data.total;
   }
 
   async getAllPlaylists(): Promise<SpotifyPlaylist[]> {

@@ -420,6 +420,147 @@ export class NavidromeApiClient {
     return response;
   }
 
+  /**
+   * Stars (favorites) a single song in Navidrome.
+   * Uses the Navidrome native API PATCH endpoint to update the song's starred status.
+   * 
+   * @param songId - The ID of the song to star
+   * @returns Promise resolving to an object with success status and optional error message
+   */
+  async starSong(songId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this._ensureAuthenticated();
+      const url = `${this.baseUrl}/api/song/${songId}`;
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-nd-authorization': `Bearer ${this._ndToken}`,
+          'x-nd-client-unique-id': `${this._ndClientId}`,
+        },
+        body: JSON.stringify({ starred: true }),
+      });
+
+      if (!response.ok) {
+        return { success: false, error: `HTTP error: ${response.status} ${response.statusText}` };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  async starSongs(songIds: string[]): Promise<{ success: boolean; error?: string }> {
+    if (songIds.length === 0) {
+      return { success: true };
+    }
+
+    try {
+      await this._ensureAuthenticated();
+      const results = await Promise.all(
+        songIds.map(async (songId) => {
+          const url = `${this.baseUrl}/api/song/${songId}`;
+          const response = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-nd-authorization': `Bearer ${this._ndToken}`,
+              'x-nd-client-unique-id': `${this._ndClientId}`,
+            },
+            body: JSON.stringify({ starred: true }),
+          });
+          return response.ok;
+        })
+      );
+
+      const allSuccessful = results.every((result) => result);
+      if (!allSuccessful) {
+        const failedCount = results.filter((r) => !r).length;
+        return { success: false, error: `${failedCount} out of ${songIds.length} songs failed to star` };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Unstars (removes from favorites) a single song in Navidrome.
+   * Uses the Navidrome native API PATCH endpoint to update the song's starred status.
+   * 
+   * @param songId - The ID of the song to unstar
+   * @returns Promise resolving to an object with success status and optional error message
+   */
+  async unstarSong(songId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this._ensureAuthenticated();
+      const url = `${this.baseUrl}/api/song/${songId}`;
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-nd-authorization': `Bearer ${this._ndToken}`,
+          'x-nd-client-unique-id': `${this._ndClientId}`,
+        },
+        body: JSON.stringify({ starred: false }),
+      });
+
+      if (!response.ok) {
+        return { success: false, error: `HTTP error: ${response.status} ${response.statusText}` };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Retrieves all starred (favorited) songs from Navidrome.
+   * Uses the Navidrome native API with a starred filter parameter.
+   * Results are sorted by starredAt date in descending order (most recently starred first).
+   * 
+   * @returns Promise resolving to an array of starred NavidromeNativeSong objects
+   */
+  async getStarredSongs(): Promise<NavidromeNativeSong[]> {
+    const allStarredSongs: NavidromeNativeSong[] = [];
+    let start = 0;
+    const limit = 50;
+
+    while (true) {
+      const params: Record<string, string | number | undefined> = {
+        _start: start,
+        _end: start + limit,
+        starred: 'true',
+        _sort: 'starredAt',
+        _order: 'DESC',
+      };
+
+      const response = await this._makeNativeRequest<NavidromeSearchResponse | NavidromeNativeSong[]>('/api/song', params);
+      
+      let items: NavidromeNativeSong[] = [];
+      if (Array.isArray(response)) {
+        items = response;
+      } else if ('items' in response) {
+        items = response.items;
+      }
+
+      if (items.length > 0) {
+        allStarredSongs.push(...items);
+      }
+
+      if (allStarredSongs.length >= this._totalCount || items.length === 0) {
+        break;
+      }
+
+      start += limit;
+    }
+
+    return allStarredSongs;
+  }
+
   getToken(): string {
     return this._ndToken;
   }

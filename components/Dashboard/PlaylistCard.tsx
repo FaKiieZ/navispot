@@ -7,17 +7,19 @@ interface PlaylistCardProps {
   playlist: SpotifyPlaylist;
   isSelected: boolean;
   onToggle: () => void;
+  onClick?: () => void;
 }
 
-export function PlaylistCard({ playlist, isSelected, onToggle }: PlaylistCardProps) {
+export function PlaylistCard({ playlist, isSelected, onToggle, onClick }: PlaylistCardProps) {
   const coverImage = playlist.images?.[0]?.url || '/file.svg';
   const trackCount = playlist.tracks.total;
 
   return (
     <div
-      className={`relative overflow-hidden rounded-lg border bg-white shadow-sm transition-all hover:shadow-md ${
+      className={`relative overflow-hidden rounded-lg border bg-white shadow-sm transition-all hover:shadow-md cursor-pointer ${
         isSelected ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-gray-200'
       }`}
+      onClick={onClick}
     >
       <div className="flex p-4">
         <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-md">

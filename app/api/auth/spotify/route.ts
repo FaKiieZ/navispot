@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { generateState } from '@/lib/spotify/auth-url';
+import { SPOTIFY_SCOPES } from '@/types';
 
 export async function GET() {
   const state = generateState();
@@ -10,7 +11,7 @@ export async function GET() {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: process.env.SPOTIFY_CLIENT_ID || '',
-    scope: 'playlist-read-private playlist-read-collaborative',
+    scope: SPOTIFY_SCOPES.join(' '),
     redirect_uri: process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:3000/api/auth/callback',
     state: state,
     code_challenge_method: 'S256',

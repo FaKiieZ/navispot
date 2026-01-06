@@ -43,3 +43,18 @@ export interface SpotifyTracksResponse {
   offset: number;
   limit: number;
 }
+
+export interface SpotifySavedTrack {
+  added_at: string;
+  track: SpotifyTrack;
+}
+
+export interface SpotifySavedTracksResponse {
+  href: string;
+  items: SpotifySavedTrack[];
+  limit: number;
+  next?: string;
+  previous?: string;
+  offset: number;
+  total: number;
+}
