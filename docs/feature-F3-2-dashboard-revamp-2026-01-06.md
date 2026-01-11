@@ -91,6 +91,30 @@ The dashboard export workflow is divided into three distinct stages:
 - Selection state persists during session
 - Visual indicator for selected rows (row highlight)
 
+#### Export Button (Fixed Footer)
+- Position: Fixed at bottom-right of screen (like cookie banner)
+- Always visible when playlists are available
+- Disabled when no playlists are selected
+- Shows selection count: "Export Selected (n)"
+
+**Fixed Export Button Styling:**
+```tsx
+<div className="fixed bottom-6 right-6 z-50">
+  <button
+    disabled={selectedIds.size === 0}
+    className="rounded-lg bg-blue-500 px-6 py-3 text-sm font-medium text-white shadow-lg transition-all hover:bg-blue-600 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-lg"
+  >
+    Export Selected ({selectedIds.size})
+  </button>
+</div>
+```
+
+**Behavior:**
+- Visible on all views (Before/During/After Export)
+- Disabled during active export to prevent duplicate exports
+- Shows updated count when selection changes
+- Fixed position ensures accessibility even when scrolling
+
 ### 1.3 Visual Design (Login Page Theme)
 
 The table inherits visual style elements from the login page but not its layout/sizing constraints.
@@ -323,7 +347,7 @@ The Selected Playlists table in the left section supports:
 1. User selects playlists in main table
 2. Selected playlists appear in Top-Left section
 3. Click playlist row to see unmatched songs in Top-Right
-4. Click "Export Selected" button
+4. Click "Export Selected" button (fixed at bottom-right of screen)
 
 **During Export:**
 1. Bottom table hides
@@ -876,7 +900,10 @@ The table inherits the login page visual language but adapts for data display:
 - [ ] Search filters results in real-time (debounced)
 - [ ] Individual row selection works
 - [ ] "Select All" selects only filtered/visible playlists
-- [ ] Export button is disabled when no selection
+- [ ] Fixed Export button visible at bottom-right (cookie banner style)
+- [ ] Export button disabled when no selection
+- [ ] Export button shows correct selection count
+- [ ] Export button disabled during active export
 - [ ] Status column is visible but not filterable
 
 **Export Tracking & Sync:**
