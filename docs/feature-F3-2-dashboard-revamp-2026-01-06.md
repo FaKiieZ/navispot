@@ -153,11 +153,22 @@ border-4 border-green-500 border-t-transparent
 <tr className="bg-zinc-100 dark:bg-zinc-800 border-l-4 border-l-green-500">
 ```
 
-**Loading Spinner:**
+**Zebra Striping (Row Visual Separation):**
 ```tsx
-<div className="h-8 w-8 animate-spin rounded-full border-4 border-green-500 border-t-transparent" />
+<tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+  {/* Even rows: Standard background */}
+  <tr className="bg-white dark:bg-zinc-900">
+  
+  {/* Odd rows: Slightly darker for visual separation */}
+  <tr className="bg-zinc-50 dark:bg-zinc-800/50">
+</tbody>
 ```
 
+**Row Alternating Pattern:**
+| Row Type | Light Mode | Dark Mode |
+|----------|------------|-----------|
+| Even | `bg-white` | `bg-zinc-900` |
+| Odd | `bg-zinc-50` | `bg-zinc-800/50` |
 ---
 
 ## Stage 2: During Exporting (Progress View)
@@ -383,6 +394,11 @@ The table inherits the login page visual language but adapts for data display:
 // Sticky header with backdrop blur
 <thead className="sticky top-0 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm z-10">
 
+// Zebra striping - odd rows darker for visual separation
+<tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+  <tr className="bg-white dark:bg-zinc-900">   {/* Even row */}
+  <tr className="bg-zinc-50 dark:bg-zinc-800/50"> {/* Odd row */}
+
 // Row hover
 <tr className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
 
@@ -411,6 +427,7 @@ The table inherits the login page visual language but adapts for data display:
 - [ ] Table renders with all playlists loaded at once
 - [ ] Sticky header works on scroll
 - [ ] Loved Songs row appears as second row (after header)
+- [ ] Zebra striping visible between rows (odd rows darker)
 - [ ] Sorting changes order and shows direction indicator
 - [ ] Search filters results in real-time (debounced)
 - [ ] Individual row selection works
