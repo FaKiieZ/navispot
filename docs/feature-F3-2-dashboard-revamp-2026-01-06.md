@@ -93,27 +93,52 @@ The dashboard export workflow is divided into three distinct stages:
 
 #### Export Button (Fixed Footer)
 - Position: Fixed at bottom-right of screen (like cookie banner)
-- Always visible when playlists are available
-- Disabled when no playlists are selected
-- Shows selection count: "Export Selected (n)"
+- Button text changes based on state:
+  - **Before Export:** "Export Selected (n)"
+  - **During Export:** "Cancel Export"
+- Disabled when no playlists are selected (before export)
+- Disabled during active export (button becomes Cancel)
+
+**Confirmation Popup (Before Export):**
+When clicking "Export Selected", a confirmation dialog appears:
+```
+┌─────────────────────────────────────┐
+│  Export Playlists                   │
+├─────────────────────────────────────┤
+│  Are you sure you want to export    │
+│  the following 3 playlists?         │
+│                                     │
+│  • Liked Songs (150 tracks)         │
+│  • Playlist A (42 tracks)           │
+│  • Playlist B (89 tracks)           │
+│                                     │
+│           [Cancel]  [Export]        │
+└─────────────────────────────────────┘
+```
 
 **Fixed Export Button Styling:**
 ```tsx
 <div className="fixed bottom-6 right-6 z-50">
   <button
-    disabled={selectedIds.size === 0}
-    className="rounded-lg bg-blue-500 px-6 py-3 text-sm font-medium text-white shadow-lg transition-all hover:bg-blue-600 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-lg"
+    onClick={isExporting ? onCancel : onShowConfirmation}
+    disabled={!isExporting && selectedIds.size === 0}
+    className="rounded-lg px-6 py-3 text-sm font-medium shadow-lg transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-lg
+      {isExporting 
+        ? 'bg-red-500 hover:bg-red-600 text-white'
+        : 'bg-blue-500 hover:bg-blue-600 text-white'}"
   >
-    Export Selected ({selectedIds.size})
+    {isExporting ? 'Cancel Export' : `Export Selected (${selectedIds.size})`}
   </button>
 </div>
 ```
 
 **Behavior:**
 - Visible on all views (Before/During/After Export)
-- Disabled during active export to prevent duplicate exports
-- Shows updated count when selection changes
-- Fixed position ensures accessibility even when scrolling
+- Text changes from "Export Selected" to "Cancel Export" during export
+- Color changes from blue (export) to red (cancel) during export
+- Shows confirmation popup before starting export
+- Disabled when no selection (before export)
+- Button remains active for cancellation during export
 
 ### 1.3 Visual Design (Login Page Theme)
 
@@ -280,10 +305,9 @@ border-4 border-green-500 border-t-transparent
 |  |  +----------------------------------------------------------+  | |
 |  |  | Song Title A      | Album Name     | Artist Name | 3:45     | | |
 |  |  | Song Title B      | Album Name     | Artist Name | 4:20     | | |
-|  |  +----------------------------------------------------------+  | |
-|  |                                                                | |
-|  |                           [Cancel Export]                      | |
-|  +----------------------------------------------------------------+ |
+|  |  | +----------------------------------------------------------+  | |
+|  |  |                                                                | |
+|  |  +----------------------------------------------------------------+ |
 +----------------------------------------------------------------------+
 ```
 
@@ -348,30 +372,38 @@ The Selected Playlists table in the left section supports:
 2. Selected playlists appear in Top-Left section
 3. Click playlist row to see unmatched songs in Top-Right
 4. Click "Export Selected" button (fixed at bottom-right of screen)
+5. Confirmation popup appears with selected playlists list
+6. User clicks "Export" on popup to confirm
 
 **During Export:**
 1. Bottom table hides
-2. Top section reorganizes to vertical layout
-3. Currently exporting playlist highlighted
-4. Progress bars show per-playlist progress
-5. Statistics update in real-time
-6. Unmatched songs panel shows current playlist's unmatched tracks
-7. User can cancel anytime
+2. Button changes from "Export Selected" to "Cancel Export"
+3. Button color changes from blue to red
+4. Top section reorganizes to vertical layout
+5. Currently exporting playlist highlighted
+6. Progress bars show per-playlist progress
+7. Statistics update in real-time
+8. Unmatched songs panel shows current playlist's unmatched tracks
+9. User can click "Cancel Export" button to abort
 
 **After Export:**
 1. Layout reverts to Before/Export state
-2. Status badges update to "Exported"
-3. Results may show in a modal or separate view
+2. Button reverts to "Export Selected" (blue)
+3. Status badges update to "Exported"
+4. Results may show in a modal or separate view
 
 ### 2.5 Cancel Export Behavior
 
-- **Cancel Button:** Always visible in Progress Panel during export
+- **Cancel Button:** The fixed footer button changes to "Cancel Export" (red) during export
 - **On Cancel:**
-  - Stop current export process
-  - Show "Export cancelled" state
-  - Allow user to return to table view
+  - Click "Cancel Export" button to stop current export process
+  - Confirmation prompt may appear (optional): "Cancel export? Progress will be lost."
+  - If confirmed, stop current export process
+  - Show "Export cancelled" state in progress panel
   - Previously exported playlists retain "Exported" status
   - In-progress playlist remains with previous status
+  - Button reverts to "Export Selected" (blue)
+  - Allow user to return to table view
 
 ---
 
@@ -901,10 +933,16 @@ The table inherits the login page visual language but adapts for data display:
 - [ ] Individual row selection works
 - [ ] "Select All" selects only filtered/visible playlists
 - [ ] Fixed Export button visible at bottom-right (cookie banner style)
+- [ ] Export button shows correct selection count in text
+- [ ] Export button changes to "Cancel Export" during export
+- [ ] Export button color changes from blue to red when exporting
+- [ ] Confirmation popup appears when clicking Export button
+- [ ] Confirmation popup shows selected playlists with track counts
+- [ ] Confirmation popup has "Cancel" and "Export" buttons
+- [ ] Clicking "Cancel" on popup closes without exporting
+- [ ] Clicking "Export" on popup starts export process
 - [ ] Export button disabled when no selection
-- [ ] Export button shows correct selection count
-- [ ] Export button disabled during active export
-- [ ] Status column is visible but not filterable
+- [ ] Cancel button works and returns to table
 
 **Export Tracking & Sync:**
 - [ ] Export creates Navidrome playlist with metadata in comment
