@@ -10,15 +10,13 @@ import { PlaylistTable } from '@/components/Dashboard/PlaylistTable';
 import { ExportLayoutManager } from '@/components/Dashboard/ExportLayoutManager';
 import { ConfirmationPopup } from '@/components/Dashboard/ConfirmationPopup';
 import { SelectedPlaylistsPanel, SelectedPlaylist } from '@/components/Dashboard/SelectedPlaylistsPanel';
-import { StatisticsPanel, Statistics } from '@/components/Dashboard/StatisticsPanel';
+import { StatisticsPanel } from '@/components/Dashboard/StatisticsPanel';
 import { UnmatchedSongsPanel, UnmatchedSong } from '@/components/Dashboard/UnmatchedSongsPanel';
-import { ProgressTracker, ProgressState } from '@/components/ProgressTracker';
-import { ResultsReport, ExportResult } from '@/components/ResultsReport';
+import { ProgressState } from '@/components/ProgressTracker';
 import { createBatchMatcher, BatchMatcherOptions } from '@/lib/matching/batch-matcher';
 import { getMatchStatistics } from '@/lib/matching/orchestrator';
 import { createPlaylistExporter, PlaylistExporterOptions } from '@/lib/export/playlist-exporter';
 import { createFavoritesExporter } from '@/lib/export/favorites-exporter';
-import { FavoritesExportResult } from '@/types/favorites';
 import { PlaylistTableItem, PlaylistInfo } from '@/types/playlist-table';
 import { TrackMatch } from '@/types/matching';
 
@@ -59,7 +57,6 @@ export function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progressState, setProgressState] = useState<ProgressState | null>(null);
-  const [exportResult, setExportResult] = useState<ExportResult | null>(null);
   const [likedSongsCount, setLikedSongsCount] = useState<number>(0);
   const [navidromePlaylists, setNavidromePlaylists] = useState<NavidromePlaylist[]>([]);
 
@@ -71,6 +68,7 @@ export function Dashboard() {
   const [sortColumn, setSortColumn] = useState<'name' | 'tracks' | 'owner'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const isExportingRef = useRef(false);
 
@@ -287,7 +285,6 @@ export function Dashboard() {
     setIsExporting(true);
     setShowConfirmation(false);
     setError(null);
-    setExportResult(null);
 
     setSelectedPlaylistsStats(
       itemsToExport.map((item) => ({
@@ -325,11 +322,6 @@ export function Dashboard() {
         enableStrict: true,
         fuzzyThreshold: 0.8,
       };
-
-      let totalMatched = 0;
-      let totalUnmatched = 0;
-      let totalExported = 0;
-      let totalFailed = 0;
 
       for (let i = 0; i < itemsToExport.length; i++) {
         const item = itemsToExport[i];
@@ -442,10 +434,13 @@ export function Dashboard() {
             },
           };
 
-          totalMatched += statistics.matched;
-          totalUnmatched += statistics.unmatched + statistics.ambiguous;
-          totalExported += result.statistics.starred;
-          totalFailed += result.statistics.failed;
+          if (i === itemsToExport.length - 1) {
+            setShowSuccess(true);
+            setTimeout(() => {
+              setShowSuccess(false);
+            }, 5000);
+            handleCancelExport();
+          }
         } else {
           const exporterOptions: PlaylistExporterOptions = {
             mode: 'create',
@@ -486,11 +481,6 @@ export function Dashboard() {
               failed: result.statistics.failed,
             },
           };
-
-          totalMatched += statistics.matched;
-          totalUnmatched += result.statistics.skipped;
-          totalExported += result.statistics.exported;
-          totalFailed += result.statistics.failed;
         }
 
         setSelectedPlaylistsStats((prev) =>
@@ -508,31 +498,12 @@ export function Dashboard() {
         );
 
         if (i === itemsToExport.length - 1) {
-          setProgressState({
-            phase: 'completed',
-            progress: { current: totalMatched + totalUnmatched, total: totalMatched + totalUnmatched, percent: 100 },
-            statistics: {
-              matched: totalMatched,
-              unmatched: totalUnmatched,
-              exported: totalExported,
-              failed: totalFailed,
-            },
-          });
-
-          setExportResult({
-            playlistName: item.name,
-            timestamp: new Date(),
-            statistics: {
-              total: totalMatched + totalUnmatched,
-              matched: totalMatched,
-              unmatched: totalUnmatched,
-              ambiguous: 0,
-              exported: totalExported,
-              failed: totalFailed,
-            },
-            matches: matches,
-            options: { mode: 'create', skipUnmatched: false },
-          });
+          setShowSuccess(true);
+          setTimeout(() => {
+            setShowSuccess(false);
+          }, 5000);
+          isExportingRef.current = false;
+          setIsExporting(false);
         }
       }
     } catch (err) {
@@ -544,7 +515,6 @@ export function Dashboard() {
         statistics: { matched: 0, unmatched: 0, exported: 0, failed: 0 },
         error: errorMessage,
       });
-    } finally {
       isExportingRef.current = false;
       setIsExporting(false);
     }
@@ -554,26 +524,9 @@ export function Dashboard() {
     isExportingRef.current = false;
     setIsExporting(false);
     setProgressState(null);
-    setExportResult(null);
     setSelectedPlaylistsStats([]);
     setCurrentUnmatchedPlaylistId(null);
     setUnmatchedSongs([]);
-  };
-
-  const handleCompleteExport = () => {
-    setLoading(false);
-  };
-
-  const handleExportAgain = () => {
-    setProgressState(null);
-    setExportResult(null);
-    handleStartExport();
-  };
-
-  const handleBackToDashboard = () => {
-    setProgressState(null);
-    setExportResult(null);
-    handleCancelExport();
   };
 
   const handlePlaylistClick = (id: string) => {
@@ -599,7 +552,7 @@ export function Dashboard() {
     return result;
   }, [selectedIds, likedSongsCount, playlists]);
 
-  const fixedExportButton = !(progressState?.phase === 'completed') && (
+  const fixedExportButton = (
     <div className="fixed bottom-6 right-6 z-50">
       <button
         onClick={isExporting ? handleCancelExport : () => setShowConfirmation(true)}
@@ -658,14 +611,6 @@ export function Dashboard() {
     />
   );
 
-  const resultsReportSection = exportResult && progressState?.phase === 'completed' && (
-    <ResultsReport
-      result={exportResult}
-      onExportAgain={handleExportAgain}
-      onBackToDashboard={handleBackToDashboard}
-    />
-  );
-
   const progressBar = isExporting && progressState && (
     <div className="w-full bg-zinc-200 dark:bg-zinc-800 h-2 rounded-full overflow-hidden mb-4">
       <div
@@ -707,8 +652,25 @@ export function Dashboard() {
     );
   }
 
+  const successToast = showSuccess && (
+    <div className="fixed top-4 right-4 z-50 animate-fade-in">
+      <div className="flex items-center gap-3 rounded-lg bg-green-500 px-4 py-3 text-white shadow-lg">
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+        <span className="text-sm font-medium">Export completed successfully!</span>
+        <button onClick={() => setShowSuccess(false)} className="ml-2 text-white/80 hover:text-white">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
+      {successToast}
       <ConfirmationPopup
         isOpen={showConfirmation}
         onClose={() => setShowConfirmation(false)}
@@ -718,14 +680,12 @@ export function Dashboard() {
 
       <ExportLayoutManager
         isExporting={isExporting}
-        isCompleted={progressState?.phase === 'completed'}
         progressBar={progressBar}
         selectedPlaylistsSection={selectedPlaylistsSection}
         statisticsSection={statisticsSection}
         unmatchedSongsSection={unmatchedSongsSection}
         mainTableSection={mainTableSection}
         fixedExportButton={fixedExportButton}
-        resultsReportSection={resultsReportSection}
       />
     </div>
   );
