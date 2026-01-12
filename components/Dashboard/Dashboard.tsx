@@ -8,6 +8,7 @@ import { SpotifyPlaylist, SpotifyTrack } from '@/types/spotify';
 import { NavidromePlaylist } from '@/types/navidrome';
 import { PlaylistTable } from '@/components/Dashboard/PlaylistTable';
 import { ExportLayoutManager } from '@/components/Dashboard/ExportLayoutManager';
+import { ExportProgressPanel } from '@/components/Dashboard/ExportProgressPanel';
 import { ConfirmationPopup } from '@/components/Dashboard/ConfirmationPopup';
 import { SelectedPlaylistsPanel, SelectedPlaylist } from '@/components/Dashboard/SelectedPlaylistsPanel';
 import { UnmatchedSongsPanel, UnmatchedSong } from '@/components/Dashboard/UnmatchedSongsPanel';
@@ -605,6 +606,17 @@ export function Dashboard() {
     />
   );
 
+  const progressPanelSection = isExporting && progressState && selectedPlaylistsStats.length > 0 && (
+    <ExportProgressPanel
+      playlistName={selectedPlaylistsStats.find((s) => s.status === 'exporting')?.name || selectedPlaylistsStats[0]?.name || 'Playlist'}
+      phase={progressState.phase as 'matching' | 'exporting' | 'completed'}
+      progress={progressState.progress}
+      currentTrack={progressState.currentTrack}
+      statistics={progressState.statistics}
+      onCancel={handleCancelExport}
+    />
+  );
+
   const progressBar = isExporting && progressState && (
     <div className="w-full bg-zinc-200 dark:bg-zinc-800 h-2 rounded-full overflow-hidden mb-4">
       <div
@@ -674,6 +686,7 @@ export function Dashboard() {
 
       <ExportLayoutManager
         isExporting={isExporting}
+        progressPanelSection={progressPanelSection}
         progressBar={progressBar}
         selectedPlaylistsSection={selectedPlaylistsSection}
         unmatchedSongsSection={unmatchedSongsSection}

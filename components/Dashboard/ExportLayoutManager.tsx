@@ -2,6 +2,7 @@ import React, { ReactNode } from 'react';
 
 export interface ExportLayoutManagerProps {
   isExporting: boolean;
+  progressPanelSection?: ReactNode;
   progressBar?: ReactNode;
   selectedPlaylistsSection: ReactNode;
   unmatchedSongsSection: ReactNode;
@@ -11,6 +12,7 @@ export interface ExportLayoutManagerProps {
 
 export function ExportLayoutManager({
   isExporting,
+  progressPanelSection,
   progressBar,
   selectedPlaylistsSection,
   unmatchedSongsSection,
@@ -22,6 +24,11 @@ export function ExportLayoutManager({
       {fixedExportButton}
 
       <div className="flex flex-col h-[calc(100vh-100px)]">
+        {isExporting && (
+          <div className="p-4 pb-0">
+            {progressPanelSection}
+          </div>
+        )}
         {progressBar}
 
         <div
