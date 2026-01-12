@@ -52,9 +52,11 @@ export function ExportLayoutManager({
           )}
         </div>
 
-        <div className="h-[50%] border-t border-zinc-200 dark:border-zinc-800 overflow-hidden">
-          {mainTableSection}
-        </div>
+        {!isExporting && (
+          <div className="h-[50%] border-t border-zinc-200 dark:border-zinc-800 overflow-hidden">
+            {mainTableSection}
+          </div>
+        )}
       </div>
     </div>
   );
