@@ -313,7 +313,9 @@ export function PlaylistTable({
         )}
       </div>
 
-      <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden flex-1">
+      <div className={`rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden flex-1 transition-all ${
+        isExporting ? 'opacity-60 cursor-not-allowed' : ''
+      }`}>
         <div className="overflow-auto h-full">
           <table className="w-full divide-y divide-zinc-200 dark:divide-zinc-800">
             <thead className="sticky top-0 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm z-10">
@@ -335,33 +337,45 @@ export function PlaylistTable({
                   </span>
                 </th>
                 <th
-                  className="px-4 py-3 text-left min-w-0 cursor-pointer select-none"
+                  className={`px-4 py-3 text-left min-w-0 select-none ${
+                    isExporting ? 'cursor-not-allowed' : 'cursor-pointer'
+                  }`}
                   onClick={() => !isExporting && onSort('name')}
                 >
                   <div className="flex items-center gap-1">
-                    <span className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    <span className={`text-xs font-medium uppercase tracking-wider ${
+                      isExporting ? 'text-zinc-400 dark:text-zinc-500' : 'text-zinc-500 dark:text-zinc-400'
+                    }`}>
                       Name
                     </span>
                     {!isExporting && <SortIcon direction={sortColumn === 'name' ? sortDirection : null} />}
                   </div>
                 </th>
                 <th
-                  className="px-4 py-3 text-left w-[120px] cursor-pointer select-none"
+                  className={`px-4 py-3 text-left w-[120px] select-none ${
+                    isExporting ? 'cursor-not-allowed' : 'cursor-pointer'
+                  }`}
                   onClick={() => !isExporting && onSort('tracks')}
                 >
                   <div className="flex items-center gap-1">
-                    <span className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    <span className={`text-xs font-medium uppercase tracking-wider ${
+                      isExporting ? 'text-zinc-400 dark:text-zinc-500' : 'text-zinc-500 dark:text-zinc-400'
+                    }`}>
                       Tracks
                     </span>
                     {!isExporting && <SortIcon direction={sortColumn === 'tracks' ? sortDirection : null} />}
                   </div>
                 </th>
                 <th
-                  className="px-4 py-3 text-left w-[200px] cursor-pointer select-none"
+                  className={`px-4 py-3 text-left w-[200px] select-none ${
+                    isExporting ? 'cursor-not-allowed' : 'cursor-pointer'
+                  }`}
                   onClick={() => !isExporting && onSort('owner')}
                 >
                   <div className="flex items-center gap-1">
-                    <span className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    <span className={`text-xs font-medium uppercase tracking-wider ${
+                      isExporting ? 'text-zinc-400 dark:text-zinc-500' : 'text-zinc-500 dark:text-zinc-400'
+                    }`}>
                       Owner
                     </span>
                     {!isExporting && <SortIcon direction={sortColumn === 'owner' ? sortDirection : null} />}
