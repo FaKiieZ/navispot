@@ -125,14 +125,15 @@ export function SelectedPlaylistsPanel({
             {selectedPlaylists.map((playlist) => (
               <tr
                 key={playlist.id}
+                onClick={() => onToggleCheck(playlist.id)}
                 className={`
-                  transition-colors
-                  ${currentPlaylistId === playlist.id 
-                    ? 'bg-zinc-100 dark:bg-zinc-800 border-l-4 border-l-green-500' 
+                  cursor-pointer transition-colors
+                  ${checkedPlaylistIds.has(playlist.id)
+                    ? 'bg-zinc-100 dark:bg-zinc-800 border-l-4 border-l-green-500'
                     : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}
                 `}
               >
-                <td className="w-12 px-4 py-3">
+                <td className="w-12 px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
                     checked={checkedPlaylistIds.has(playlist.id)}
@@ -141,9 +142,8 @@ export function SelectedPlaylistsPanel({
                   />
                 </td>
                 <td 
-                  className="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate max-w-[200px] cursor-pointer" 
+                  className="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate max-w-[200px]" 
                   title={playlist.name}
-                  onClick={() => onPlaylistClick(playlist.id)}
                 >
                   {playlist.name}
                 </td>
