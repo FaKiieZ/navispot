@@ -96,6 +96,7 @@ The dashboard export workflow is divided into three stages with a consistent lay
 - "Select All" selects only playlists matching current filters and search criteria
 - Selection state persists during session
 - Visual indicator for selected rows (row highlight)
+- **Real-time Selected Playlists Table:** Selected playlists immediately appear in the Selected Playlists table (top-left) when user selects them in the main table (bottom)
 
 #### Export Button (Fixed Footer) ✅ Completed
 - Position: Fixed at bottom-right of screen (like cookie banner)
@@ -373,6 +374,8 @@ The layout during export is identical to the before/after export layout. The onl
 
 The Selected Playlists table in the left section supports:
 
+- **Real-time Population:** Playlists immediately appear when selected in main table
+- **Track Selection:** Select All checkbox in header + individual track checkboxes (NEW - similar to main table)
 - **Expandable Rows:** Click a row to show detailed breakdown
 - **Detail View shows:**
   - Matched songs list
@@ -383,22 +386,34 @@ The Selected Playlists table in the left section supports:
 - **Aggregate statistics:** Shown as inline badges in panel header (Total, Matched, Unmatched)
 - **Removed:** "Match/Unmatch" column from table (aggregate stats now in header)
 
-### 2.5 Unmatched Songs Detail Panel ✅ Completed
+### 2.5 Songs Detail Panel 📋 TO BE IMPLEMENTED
 
 **Location:** Right section (Before/During Export)
+
+**Panel Change:** The "Unmatched Songs" panel is now renamed to "Songs" and shows all tracks from the selected playlist, not just unmatched songs.
 
 **Columns:**
 | Column | Width | Content |
 |--------|-------|---------|
-| Title | 40% | Song title (truncated) |
+| Title | 45% | Song title (truncated) |
 | Album | 25% | Album name (truncated) |
 | Artist | 25% | Artist name (truncated) |
-| Duration | 10% | Track duration (mm:ss) |
+| Duration | 5% | Track duration (mm:ss) |
 
 **Behavior:**
-- Shows unmatched songs for selected playlist from left table
+- Shows all tracks from selected playlist when user clicks a playlist in the Selected Playlists table
 - Empty state when no playlist selected
+- **No Track Selection:** Songs panel is read-only - only displays track information
+- **Display Only:** Users can view all tracks but cannot select individual tracks in this panel
 - Click a song row for additional options (e.g., "Skip", "Match manually")
+- **Visual Indicators:** Hover effects for better interactivity but no selection states
+
+**Display Features:**
+- **Complete Track List:** Shows all tracks from the selected playlist in a scrollable table
+- **Hover Effects:** Visual feedback on hover for better user experience
+- **Tooltips:** Full content displayed on hover for truncated text
+- **Responsive Scrolling:** Independent scrolling with sticky header
+- **Information Focus:** Designed for viewing track details, not selection
 
 ### 2.6 Statistics Section ✅ Removed (January 12, 2026)
 
@@ -432,12 +447,13 @@ The separate Statistics Panel has been removed. Statistics are now displayed as 
 ### 2.8 Export Flow Sequence ✅ Completed
 
 **Before Export:**
-1. User selects playlists in main table
-2. Selected playlists appear in Top-Left section
-3. Click playlist row to see unmatched songs in Top-Right
-4. Click "Export Selected" button (fixed at bottom-right of screen)
-5. Confirmation popup appears with selected playlists list
-6. User clicks "Export" on popup to confirm
+1. User selects playlists in main table (bottom section)
+2. Selected playlists immediately appear in Top-Left Selected Playlists table
+3. Click playlist row in Selected Playlists table to see all tracks in Top-Right Songs panel
+4. (Optional) Select individual tracks in Songs panel using checkboxes
+5. Click "Export Selected" button (fixed at bottom-right of screen)
+6. Confirmation popup appears with selected playlists list
+7. User clicks "Export" on popup to confirm
 
 **During Export:**
 1. Layout remains unchanged (two-column top section + bottom table)
@@ -447,7 +463,7 @@ The separate Statistics Panel has been removed. Statistics are now displayed as 
 5. Currently exporting playlist highlighted
 6. Statistics badges update in real-time
 7. Status badges update (Exporting → Exported)
-8. Unmatched songs panel shows current playlist's unmatched tracks
+8. Songs panel shows all tracks from current playlist being exported
 9. Bottom table interactions disabled (selection, sort, filter)
 10. User can click "Cancel Export" button to abort
 
@@ -471,6 +487,60 @@ The separate Statistics Panel has been removed. Statistics are now displayed as 
    - Button reverts to "Export Selected" (blue)
    - Bottom table interactions re-enabled (selection, sort, filter)
    - Layout remains unchanged (same as before export)
+
+---
+
+## Features to be Implemented 📋
+
+### 2.5.1 Real-time Selected Playlists Table Population 📋 TO BE IMPLEMENTED
+
+**Current Behavior:** Selected playlists only appear in Selected Playlists table after export confirmation or during export.
+
+**Required Behavior:** Selected playlists must immediately appear in the Selected Playlists table (top-left) when the user selects them in the main table (bottom section).
+
+**Implementation Details:**
+- **Real-time Updates:** When user clicks a playlist checkbox in main table, immediately add that playlist to Selected Playlists table
+- **Bidirectional Sync:** If user deselects a playlist in main table, remove it from Selected Playlists table
+- **Session Persistence:** Selected Playlists table maintains state across user interactions
+- **Visual Feedback:** Newly added playlists should be highlighted briefly to draw user attention
+- **Performance:** Updates should be instantaneous without lag
+
+**Technical Requirements:**
+- Update `Dashboard.tsx` to sync `selectedPlaylists` state with `selectedIds` state
+- Modify `SelectedPlaylistsPanel.tsx` to accept and display real-time updates
+- Ensure proper cleanup when playlists are deselected
+- Maintain statistics updates as playlists are added/removed
+
+### 2.5.2 Songs Panel Display (Read-Only) 📋 TO BE IMPLEMENTED
+
+**Current Behavior:** Unmatched Songs panel shows only unmatched tracks from selected playlist.
+
+**Required Behavior:** Songs panel shows all tracks from selected playlist as a read-only display.
+
+**Implementation Details:**
+- **Panel Rename:** Change "Unmatched Songs Panel" to "Songs Panel"
+- **Complete Track List:** Display all tracks from selected playlist, not just unmatched ones
+- **Read-Only Display:** No selection checkboxes - purely for viewing track information
+- **Table Structure:** Remove Select column - only display track information
+- **Behavior Changes:**
+  - Empty state when no playlist selected
+  - Hover effects for better interactivity
+  - Tooltips for truncated text
+  - Independent scrolling with sticky header
+
+**Component Updates Required:**
+- Rename `UnmatchedSongsPanel.tsx` to `SongsPanel.tsx`
+- Remove any selection-related code from track table
+- Update to fetch and display all tracks from selected playlist
+- Ensure proper scrolling and sticky header behavior
+- Add hover effects and tooltips for better UX
+
+**UI Requirements:**
+- Clean, readable display of track information
+- Hover effects for interactivity without selection
+- Tooltips for truncated track titles/albums/artists
+- Responsive column widths (no Select column)
+- Proper scrollable container with sticky header
 
 ---
 
@@ -676,170 +746,6 @@ interface PlaylistTableItem {
 #### ExportMetadata ✅ Completed
 
 ```typescript
-interface ExportMetadata {
-  spotifyPlaylistId: string;
-  navidromePlaylistId?: string;
-  spotifySnapshotId: string;
-  exportedAt: string;
-  trackCount: number;
-}
-```
-
-### Navidrome Client Updates ✅ Completed
-
-| Task | File | Description | Status |
-|------|------|-------------|--------|
-| Add `getPlaylistByComment` method | `lib/navidrome/client.ts` | Find playlists with matching Spotify ID | ✅ Added (Jan 11, 2026) |
-| Add `updatePlaylistComment` method | `lib/navidrome/client.ts` | Update comment with new metadata | ✅ Added (Jan 11, 2026) |
-| Add `findOrCreateLikedSongsPlaylist` method | `lib/navidrome/client.ts` | Special handling for Liked Songs | ✅ Added (Jan 11, 2026) |
-| Add `parseExportMetadata` helper | `lib/navidrome/client.ts` | Safely parse JSON from comment field | ✅ Added (Jan 11, 2026) |
-
-### UI Updates for Sync ✅ Completed
-
-**Status Badge with Sync Indicator:**
-```tsx
-{exportStatus === 'out-of-sync' && (
-  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-    </svg>
-    Out of Sync
-  </span>
-)}
-```
-
-### Testing Requirements ✅ Updated (January 12, 2026)
-
-**Table & Basic Features:**
-- [x] Table renders with all playlists loaded at once
-- [x] Sticky header works on scroll
-- [x] Loved Songs row appears as second row (after header)
-- [x] Zebra striping visible between rows (odd rows darker)
-- [x] Sorting changes order and shows direction indicator
-- [x] Search filters results in real-time (debounced)
-- [x] Individual row selection works
-- [x] "Select All" selects only filtered/visible playlists
-- [x] Fixed Export button visible at bottom-right (cookie banner style)
-- [x] Export button shows correct selection count in text
-- [x] Export button changes to "Cancel Export" during export
-- [x] Export button color changes from blue to red when exporting
-- [x] Confirmation popup appears when clicking Export button
-- [x] Confirmation popup shows selected playlists with track counts
-- [x] Confirmation popup has "Cancel" and "Export" buttons
-- [x] Clicking "Cancel" on popup closes without exporting
-- [x] Clicking "Export" on popup starts export process
-- [x] Export button disabled when no selection
-- [x] Cancel button works and returns to table
-
-**Export Tracking & Sync:**
-- [x] Export creates Navidrome playlist with metadata in comment
-- [x] Dashboard loads and matches Navidrome playlists with Spotify playlists
-- [x] Export status shows correctly (none/exported/out-of-sync)
-- [x] Out of sync badge appears when snapshot IDs differ
-- [x] Re-export updates existing Navidrome playlist
-- [x] Liked Songs tracking works correctly
-
-**Before/After Export Layout:**
-- [x] Top half shows two-column layout (left: Selected Playlists, right: Unmatched Songs)
-- [x] Selected Playlists table appears in left section with inline stats in header
-- [x] Statistics badges visible in Selected Playlists panel header
-- [x] Unmatched Songs panel appears in right section
-- [x] Clicking playlist in left shows its unmatched songs in right
-- [x] Bottom half shows main playlist table
-
-**During Export Layout:**
-- [x] Layout remains identical to before/after export (two-column top + bottom table)
-- [x] Selected Playlists table shows progress bars for each playlist
-- [x] Statistics badges show in Selected Playlists panel header and update in real-time
-- [x] Unmatched Songs panel shows unmatched tracks for selected playlist
-- [x] Bottom table remains visible and scrollable
-- [x] Progress bars update in real-time for each playlist
-- [x] Currently exporting playlist is highlighted
-- [x] Status badges update in real-time (Exporting → Exported)
-- [x] Cancel export button works and stops the process
-- [x] Bottom table interactions disabled during export
-- [x] Layout remains consistent after export completes
-
-**UI & Styling:**
-- [x] Results view shows after export completes
-- [x] Back to Dashboard returns to table
-- [x] Dark mode renders correctly (login page style)
-- [x] Empty state shows when no playlists
-- [x] Loading spinner displays during data fetch
-- [x] Statistics badges update in real-time during export
-
-### Automated Tests ✅ Completed
-
-- [x] Unit tests for sorting/filtering logic
-- [x] Integration tests for selection state
-- [x] E2E tests for export workflow
-
-### PlaylistTable Component Tests ✅ Completed
-
-- [x] Component renders with all playlists loaded at once
-- [x] Sticky header works on scroll
-- [x] Loved Songs row appears as second row (after header)
-- [x] Zebra striping visible between rows (odd rows darker)
-- [x] Sorting changes order and shows direction indicator
-- [x] Search filters results in real-time
-- [x] Individual row selection works
-- [x] "Select All" selects only filtered/visible playlists
-- [x] Status badges display correctly (none/exported/out-of-sync)
-- [x] Out of sync badge shows warning icon
-- [x] Selected rows have green left border
-- [x] Hover effects work on all rows
-- [x] Empty state shows when no playlists match search
-- [x] Interactions disabled during export
-
----
-
-## Success Metrics ✅ Completed
-
-| Metric | Target | Status |
-|--------|--------|--------|
-| Table render time | < 100ms | ✅ < 50ms |
-| Search debounce | 300ms | ✅ 300ms |
-| Sort response | < 50ms | ✅ < 20ms |
-| Selection toggle | Instant | ✅ < 5ms |
-| Export flow completion | 100% success rate | ✅ 99%+ |
-
----
-
-## Timeline ✅ Completed
-
-| Phase | Duration | Deliverables |
-|-------|----------|--------------|
-| Phase 1: Core Structure | 1 day | Table component with all playlists |
-| Phase 2: Sort/Filter/Search | 2 days | Full table functionality |
-| Phase 3: Selection & Export | 1 day | Complete export flow |
-| Phase 4: Polish & Testing | 1 day | Visual polish, testing |
-
-**Total Estimated Time:** 5 days (reduced from 6 due to no pagination)
-**Actual Time:** 5 days (January 6-11, 2026)
-
----
-
-## Type Definitions ✅ Completed
-
-### File: `types/playlist-table.ts` ✅ Completed
-
-Created on: January 11, 2026
-
-```typescript
-export interface PlaylistTableItem {
-  id: string;
-  name: string;
-  images: { url: string }[];
-  owner: { display_name: string };
-  tracks: { total: number };
-  snapshot_id: string;
-  isLikedSongs: boolean;
-  selected: boolean;
-  exportStatus: 'none' | 'exported' | 'out-of-sync';
-  navidromePlaylistId?: string;
-  lastExportedAt?: string;
-}
-
 export interface ExportMetadata {
   spotifyPlaylistId: string;
   navidromePlaylistId?: string;
@@ -860,6 +766,21 @@ export interface TableState {
 }
 
 export type ExportStatus = 'none' | 'exported' | 'out-of-sync';
+
+// NEW: Track Display Types for Songs Panel (Read-Only)
+export interface SongItem {
+  id: string;
+  title: string;
+  album: string;
+  artist: string;
+  duration: string; // mm:ss format
+}
+
+export interface SongsPanelState {
+  playlistId: string | null;
+  tracks: SongItem[];
+  isLoading: boolean;
+}
 
 export function getExportStatusBadgeColor(status: ExportStatus): string {
   switch (status) {
@@ -1232,7 +1153,8 @@ The implementation follows all requirements from the design specification and ma
 | ExportLayoutManager | `components/Dashboard/ExportLayoutManager.tsx` | ✅ Complete |
 | ConfirmationPopup | `components/Dashboard/ConfirmationPopup.tsx` | ✅ Complete |
 | SelectedPlaylistsPanel | `components/Dashboard/SelectedPlaylistsPanel.tsx` | ✅ Updated (Jan 12, 2026) - Added inline statistics |
-| UnmatchedSongsPanel | `components/Dashboard/UnmatchedSongsPanel.tsx` | ✅ Complete |
+| UnmatchedSongsPanel | `components/Dashboard/UnmatchedSongsPanel.tsx` | 📋 TO BE RENAMED to SongsPanel |
+| SongsPanel | `components/Dashboard/SongsPanel.tsx` | 📋 TO BE IMPLEMENTED (track selection) |
 | Dashboard | `components/Dashboard/Dashboard.tsx` | ✅ Complete |
 | usePlaylistTable hook | `hooks/usePlaylistTable.ts` | ✅ Complete |
 | Navidrome client (export tracking) | `lib/navidrome/client.ts` | ✅ Complete |
@@ -1257,6 +1179,12 @@ The implementation follows all requirements from the design specification and ma
 - ✅ ProgressTracker with real-time updates
 - ✅ Layout transitions via ExportLayoutManager
 - ✅ Selection persistence via sessionStorage
+
+### New Features to be Implemented 📋
+
+- 📋 **Real-time Selected Playlists Table:** Selected playlists immediately appear when checked in main table
+- 📋 **Songs Panel Display:** Shows all tracks from selected playlist (read-only display, no selection)
+- 📋 **Selected Playlists Table Track Selection:** Select All checkbox + individual track checkboxes in Selected Playlists table only
 
 ### Testing Checklist - All Items Passed
 
@@ -1291,6 +1219,35 @@ The implementation follows all requirements from the design specification and ma
 | Bottom table disappears during export | ✅ PASS |
 | Progress bars update in real-time | ✅ PASS |
 
+### Updated Requirements (January 26, 2026)
+
+**Feature Status**: ✅ **Core Implementation Complete** with 📋 **New Features to Implement**
+
+The dashboard revamp is functionally complete for the original requirements. Two additional user experience enhancements have been identified and must be implemented:
+
+#### 📋 New Features Required
+
+1. **Real-time Selected Playlists Table Population**
+   - Currently: Selected playlists only appear after export confirmation
+   - Required: Selected playlists must immediately appear in Selected Playlists table when user selects them in main table
+   - Impact: Improved user feedback and clearer understanding of selected items
+
+2. **Songs Panel Display**
+   - Currently: "Unmatched Songs" panel shows only unmatched tracks
+   - Required: "Songs" panel shows all tracks as read-only display (no selection)
+   - Impact: Better visibility of playlist contents without selection complexity
+
+3. **Selected Playlists Table Track Selection**
+   - Currently: Selected Playlists table only shows playlist information
+   - Required: Add Select All checkbox + individual track checkboxes to Selected Playlists table
+   - Impact: Granular control over which tracks to export from each selected playlist
+
+#### Implementation Priority
+
+- **High Priority**: These features significantly improve user experience
+- **Backward Compatible**: Changes don't break existing functionality
+- **User-Requested**: Based on actual user interaction feedback
+
 ### Conclusion
 
-**Feature F3.2 Dashboard Revamp is FULLY IMPLEMENTED and VERIFIED.** All requirements from the original plan have been successfully implemented with no bugs or missing features detected.
+**Feature F3.2 Dashboard Revamp is CORE IMPLEMENTATION COMPLETE** with 📋 **Two additional features to implement**. The existing functionality meets all original requirements and is fully operational. The new features will enhance the user experience by providing real-time feedback and more granular export control.
