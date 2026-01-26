@@ -174,6 +174,12 @@ export function Dashboard() {
         }
       }
 
+      if (navidromePlaylists.length === 0 && hasCachedExport) {
+        exportStatus = 'exported';
+        navidromePlaylistId = cachedData.navidromePlaylistId;
+        lastExportedAt = cachedData.exportedAt;
+      }
+
       return {
         id: playlist.id,
         name: playlist.name,
