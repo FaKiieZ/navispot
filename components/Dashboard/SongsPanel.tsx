@@ -3,6 +3,7 @@
 import React from 'react';
 
 export interface Song {
+  spotifyTrackId: string;
   title: string;
   album: string;
   artist: string;

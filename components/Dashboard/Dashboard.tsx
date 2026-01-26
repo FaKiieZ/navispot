@@ -82,7 +82,7 @@ export function Dashboard() {
   const [playlistTracksCache, setPlaylistTracksCache] = useState<Map<string, Song[]>>(new Map());
   const [loadingTracks, setLoadingTracks] = useState(false);
   const [loadingPlaylistIds, setLoadingPlaylistIds] = useState<Set<string>>(new Set());
-  const [songExportStatus, setSongExportStatus] = useState<Map<string, Map<number, 'waiting' | 'exported' | 'failed'>>>(new Map());
+  const [songExportStatus, setSongExportStatus] = useState<Map<string, Map<string, 'waiting' | 'exported' | 'failed'>>>(new Map());
   const [trackExportCache, setTrackExportCache] = useState<Map<string, PlaylistExportData>>(new Map());
 
   const isExportingRef = useRef(false);
@@ -298,6 +298,7 @@ export function Dashboard() {
               }
 
               const songs: Song[] = tracks.map(track => ({
+                spotifyTrackId: track.id,
                 title: track.name,
                 album: track.album?.name || 'Unknown',
                 artist: track.artists?.map(a => a.name).join(', ') || 'Unknown',
@@ -341,7 +342,7 @@ export function Dashboard() {
   useEffect(() => {
     if (selectedIds.size === 0) return;
 
-    const newStatus = new Map<string, Map<number, 'waiting' | 'exported' | 'failed'>>();
+    const newStatus = new Map<string, Map<string, 'waiting' | 'exported' | 'failed'>>();
 
     selectedIds.forEach(playlistId => {
       const cachedData = loadPlaylistExportData(playlistId);
@@ -349,16 +350,13 @@ export function Dashboard() {
         const playlistStatus = new Map();
         const songs = playlistTracksCache.get(playlistId);
         if (songs) {
-          songs.forEach((song, index) => {
-            const spotifyTrackId = Object.keys(cachedData.tracks).find(trackId => {
-              const cachedTrack = cachedData.tracks[trackId];
-              return cachedTrack.spotifyTrackId === trackId;
-            });
-            if (spotifyTrackId) {
-              const cachedStatus = cachedData.tracks[spotifyTrackId];
-              playlistStatus.set(index, cachedStatus.status === 'matched' ? 'exported' : 'failed');
+          songs.forEach((song) => {
+            const trackId = song.spotifyTrackId;
+            if (cachedData.tracks[trackId]) {
+              const cachedStatus = cachedData.tracks[trackId];
+              playlistStatus.set(trackId, cachedStatus.status === 'matched' ? 'exported' : 'failed');
             } else {
-              playlistStatus.set(index, 'waiting');
+              playlistStatus.set(trackId, 'waiting');
             }
           });
         }
@@ -537,8 +535,8 @@ export function Dashboard() {
           const newStatus = new Map(prev);
           const playlistStatus = new Map();
           const songs = playlistTracksCache.get(item.id) || [];
-          songs.forEach((_, idx) => {
-            playlistStatus.set(idx, 'waiting');
+          songs.forEach((song) => {
+            playlistStatus.set(song.spotifyTrackId, 'waiting');
           });
           newStatus.set(item.id, playlistStatus);
           return newStatus;
@@ -612,15 +610,14 @@ export function Dashboard() {
                 )
               );
               if (batchProgress.currentMatch) {
-                const trackIndex = batchProgress.current - 1;
                 const match = batchProgress.currentMatch;
                 setSongExportStatus((prev) => {
                   const newStatus = new Map(prev);
                   const playlistStatus = new Map(prev.get(item.id) || []);
                   if (match.status === 'matched' || match.status === 'ambiguous') {
-                    playlistStatus.set(trackIndex, 'exported');
+                    playlistStatus.set(match.spotifyTrack.id, 'exported');
                   } else {
-                    playlistStatus.set(trackIndex, 'failed');
+                    playlistStatus.set(match.spotifyTrack.id, 'failed');
                   }
                   newStatus.set(item.id, playlistStatus);
                   return newStatus;
@@ -663,15 +660,14 @@ export function Dashboard() {
                 )
               );
               if (batchProgress.currentMatch) {
-                const trackIndex = batchProgress.current - 1;
                 const match = batchProgress.currentMatch;
                 setSongExportStatus((prev) => {
                   const newStatus = new Map(prev);
                   const playlistStatus = new Map(prev.get(item.id) || []);
                   if (match.status === 'matched' || match.status === 'ambiguous') {
-                    playlistStatus.set(trackIndex, 'exported');
+                    playlistStatus.set(match.spotifyTrack.id, 'exported');
                   } else {
-                    playlistStatus.set(trackIndex, 'failed');
+                    playlistStatus.set(match.spotifyTrack.id, 'failed');
                   }
                   newStatus.set(item.id, playlistStatus);
                   return newStatus;
@@ -913,17 +909,22 @@ export function Dashboard() {
             let unmatchedCount = 0;
             let ambiguousCount = 0;
 
-            Object.entries(tracksData).forEach(([spotifyTrackId, trackData]) => {
-              const isFromCache = cachedData?.tracks[spotifyTrackId] && !newTracks.some(t => t.id === spotifyTrackId);
-              
-              if (isFromCache) {
-                // Track was already cached, preserve original cache data and don't count in statistics
-                if (cachedData) {
-                  tracksData[spotifyTrackId] = cachedData.tracks[spotifyTrackId];
+            matches.forEach((match) => {
+              const track = match.spotifyTrack;
+              const isFromCache = cachedData?.tracks[track.id] && !newTracks.some(t => t.id === track.id);
+
+              if (isFromCache && cachedData) {
+                tracksData[track.id] = cachedData.tracks[track.id];
+                const cachedStatus = cachedData.tracks[track.id];
+                if (cachedStatus.status === 'matched') {
+                  matchedCount++;
+                } else if (cachedStatus.status === 'ambiguous') {
+                  ambiguousCount++;
+                } else {
+                  unmatchedCount++;
                 }
-              } else if (match) {
-                // Track is newly matched, save new data and count in statistics
-                tracksData[spotifyTrackId] = {
+              } else {
+                tracksData[track.id] = {
                   spotifyTrackId: track.id,
                   navidromeSongId: match.navidromeSong?.id,
                   status: match.status,
@@ -939,20 +940,6 @@ export function Dashboard() {
                 } else {
                   unmatchedCount++;
                 }
-              } else {
-                // Track has no match (unmatched), preserve as waiting
-                if (cachedData && cachedData.tracks[spotifyTrackId]) {
-                  tracksData[spotifyTrackId] = cachedData.tracks[spotifyTrackId];
-                } else {
-                  tracksData[spotifyTrackId] = {
-                    spotifyTrackId: track.id,
-                    status: 'unmatched' as const,
-                    matchStrategy: 'none' as const,
-                    matchScore: 0,
-                    matchedAt: new Date().toISOString(),
-                  };
-                }
-                unmatchedCount++;
               }
             });
 
@@ -1052,9 +1039,9 @@ export function Dashboard() {
       .map((playlist) => {
         const songs = playlistTracksCache.get(playlist.id) || [];
         const statusMap = songExportStatus.get(playlist.id);
-        const songsWithStatus = songs.map((song, index) => ({
+        const songsWithStatus = songs.map((song) => ({
           ...song,
-          exportStatus: statusMap?.get(index) || 'waiting',
+          exportStatus: statusMap?.get(song.spotifyTrackId) || 'waiting',
         }));
         return {
           playlistId: playlist.id,

@@ -593,6 +593,97 @@ interface BatchMatcherProgress {
 
 ---
 
+## Track Export Status Display Bug Fix (January 26, 2026)
+
+### Problem
+Track export status (green for exported, red for failed) was not displaying after page reload. The Songs Panel showed all tracks with default colors regardless of actual export status stored in localStorage.
+
+### Root Cause
+1. **Key Type Mismatch**: The `songExportStatus` Map was using track indices (numbers) as keys during matching/initialization
+2. **Lookup Mismatch**: When displaying tracks, the code attempted to look up status by `spotifyTrackId` (string) from a Map indexed by numbers
+3. **Cache Load Logic**: The cache loading logic at line 345 used complex iteration with incorrect track ID matching that didn't properly associate cached status with songs
+
+### Solution
+
+#### components/Dashboard/Dashboard.tsx
+**Type Definition Fix (line 85):**
+- Changed `songExportStatus` Map type from `Map<string, Map<number, ...>>` to `Map<string, Map<string, ...>>`
+- Now consistently uses Spotify track IDs (strings) as keys throughout
+
+**Cache Loading Logic (lines 342-373):**
+```typescript
+// Before: Used index numbers and complex Object.keys().find()
+songs.forEach((song, index) => {
+  const spotifyTrackId = Object.keys(cachedData.tracks).find(trackId => {
+    const cachedTrack = cachedData.tracks[trackId];
+    return cachedTrack.spotifyTrackId === trackId;
+  });
+  if (spotifyTrackId) {
+    const cachedStatus = cachedData.tracks[spotifyTrackId];
+    playlistStatus.set(index, cachedStatus.status === 'matched' ? 'exported' : 'failed');
+  } else {
+    playlistStatus.set(index, 'waiting');
+  }
+});
+
+// After: Direct lookup by spotifyTrackId
+songs.forEach((song) => {
+  const trackId = song.spotifyTrackId;
+  if (cachedData.tracks[trackId]) {
+    const cachedStatus = cachedData.tracks[trackId];
+    playlistStatus.set(trackId, cachedStatus.status === 'matched' ? 'exported' : 'failed');
+  } else {
+    playlistStatus.set(trackId, 'waiting');
+  }
+});
+```
+
+**Status Initialization (lines 534-543):**
+```typescript
+// Before: Used index numbers
+songs.forEach((_, idx) => {
+  playlistStatus.set(idx, 'waiting');
+});
+
+// After: Uses spotifyTrackId
+songs.forEach((song) => {
+  playlistStatus.set(song.spotifyTrackId, 'waiting');
+});
+```
+
+**Matching Progress Callbacks (lines 618-625, 668-675):**
+```typescript
+// Before: Used track index
+const trackIndex = batchProgress.current - 1;
+if (match.status === 'matched' || match.status === 'ambiguous') {
+  playlistStatus.set(trackIndex, 'exported');
+} else {
+  playlistStatus.set(trackIndex, 'failed');
+}
+
+// After: Uses spotifyTrack.id
+if (match.status === 'matched' || match.status === 'ambiguous') {
+  playlistStatus.set(match.spotifyTrack.id, 'exported');
+} else {
+  playlistStatus.set(match.spotifyTrack.id, 'failed');
+}
+```
+
+**Cache Update Logic (lines 904-970):**
+Fixed bug where code was iterating over empty `tracksData` object and referencing undefined variables `match` and `track`. Updated to:
+- Iterate over `matches` array instead of empty `tracksData`
+- Properly handle both cached and newly matched tracks
+- Correctly count statistics for each track
+
+### Result
+- Track colors (green/red) now correctly display after page reload
+- Export status persists correctly across page refreshes
+- All status lookups use consistent key type (spotifyTrackId strings)
+- Cache loading is more efficient with direct Map lookups
+- No more key type mismatches causing undefined status display
+
+---
+
 ## Track Export Persistence & Differential Exports
 
 ### Overview
