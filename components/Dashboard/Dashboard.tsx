@@ -909,6 +909,10 @@ export function Dashboard() {
           if (result.playlistId) {
             const tracksData: Record<string, TrackExportStatus> = {};
 
+            const cachedMatched = cachedData?.statistics.matched || 0;
+            const cachedUnmatched = cachedData?.statistics.unmatched || 0;
+            const cachedAmbiguous = cachedData?.statistics.ambiguous || 0;
+
             tracks.forEach((track, index) => {
               const match = matches[index];
               if (match) {
@@ -938,9 +942,9 @@ export function Dashboard() {
               tracks: cachedData ? { ...cachedData.tracks, ...tracksData } : tracksData,
               statistics: {
                 total: tracks.length,
-                matched: statistics.matched,
-                unmatched: statistics.unmatched,
-                ambiguous: statistics.ambiguous,
+                matched: cachedMatched + statistics.matched,
+                unmatched: cachedUnmatched + statistics.unmatched,
+                ambiguous: cachedAmbiguous + statistics.ambiguous,
               },
             };
             savePlaylistExportData(item.id, updatedCache);
