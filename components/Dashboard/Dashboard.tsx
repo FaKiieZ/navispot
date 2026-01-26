@@ -227,6 +227,11 @@ export function Dashboard() {
       });
 
     setSelectedPlaylistsStats(selectedPlaylists);
+    
+    // Auto-check all selected playlists by default
+    if (selectedPlaylists.length > 0) {
+      setCheckedPlaylistIds(new Set(selectedPlaylists.map(p => p.id)));
+    }
   }, [selectedIds, playlists, likedSongsCount, isExporting]);
 
   // Fetch tracks for checked playlists
@@ -712,7 +717,7 @@ export function Dashboard() {
   );
 
   const songsSection = (
-    <SongsPanel playlistGroups={playlistGroups} />
+    <SongsPanel playlistGroups={playlistGroups} isLoading={loadingTracks} />
   );
 
   const mainTableSection = (

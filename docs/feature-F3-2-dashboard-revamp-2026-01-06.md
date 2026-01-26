@@ -375,18 +375,22 @@ The layout during export is identical to the before/after export layout. The onl
 The Selected Playlists table in the left section supports:
 
 - **Real-time Population:** Playlists immediately appear when selected in main table
+- **Auto-Check by Default:** All playlists are automatically checked when they appear (shows all tracks immediately)
 - **Playlist Checkboxes:** Select All checkbox in header + individual playlist checkboxes to control which tracks display in right panel
+- **Row Click Selection:** Clicking anywhere on a row toggles the checkbox (similar to bottom table)
 - **Status column:** Shows `Exported` / `Exporting` / `Pending`
 - **Progress bar:** Visual progress indicator during export
 - **Aggregate statistics:** Shown as inline badges in panel header (Total, Matched, Unmatched)
 
 **Checkbox Behavior:**
+- **Default State:** All playlists automatically checked when added to table
 - Checkboxes control which playlists' tracks are displayed in the right Songs panel
 - Check a playlist → its tracks appear in right panel
 - Check multiple playlists → all their tracks appear in right panel (grouped by playlist)
 - Uncheck a playlist → its tracks disappear from right panel
-- Select All → shows all tracks from all selected playlists
-- Independent from row click (clicking row still shows playlist details)
+- Select All → checks all playlists in the table
+- **Row Click:** Clicking anywhere on row toggles checkbox (except checkbox itself)
+- **Visual Feedback:** Checked rows show green left border + background highlight
 
 ### 2.5 Songs Detail Panel ✅ Completed (January 16, 2026)
 
@@ -396,9 +400,11 @@ The Selected Playlists table in the left section supports:
 
 **Display Behavior:**
 - Shows tracks from **checked playlists** in the Selected Playlists table (left panel)
+- **All playlists checked by default** when they appear in Selected Playlists table
 - Tracks are **grouped by playlist** with visual separators
 - Each playlist group has a section header showing playlist name and track count
 - Row numbering **resets to 1** for each new playlist group
+- **Loading animation** shown while fetching tracks from Spotify
 - Empty state when no playlists are checked
 
 **Columns:**
@@ -451,12 +457,26 @@ The Selected Playlists table in the left section supports:
 
 **Track Fetching & Caching:**
 - **Automatic Fetching:** Tracks are fetched automatically when playlists are checked
+- **Auto-Check Default:** All playlists automatically checked when added to Selected Playlists table
+- **Loading Animation:** Spinner with "Loading Tracks..." message shown while fetching
 - **Caching Strategy:** Fetched tracks are cached to avoid redundant API calls
 - **Parallel Loading:** Multiple playlists fetched in parallel for better performance
-- **Loading State:** Loading indicator shown while fetching tracks
+- **Loading State:** Blue spinning border animation during fetch operations
 - **Error Handling:** API errors logged without crashing the UI
 - **Data Source:** Uses existing `spotifyClient.getAllPlaylistTracks()` and `spotifyClient.getAllSavedTracks()`
 - **Format Conversion:** Spotify track data converted to Song format with duration in mm:ss
+
+**Loading States:**
+```
+Empty State (No playlists checked):
+  ♫ Icon + "No Playlists Checked" message
+
+Loading State (Fetching tracks):
+  ⟳ Spinner + "Loading Tracks..." + "Fetching tracks from Spotify"
+
+Loaded State (Tracks displayed):
+  Grouped track list with section headers
+```
 
 **Implementation Details:**
 ```typescript
@@ -626,6 +646,9 @@ The separate Statistics Panel has been removed. Statistics are now displayed as 
 **Implementation Details:**
 - ✅ **Added State:** `playlistTracksCache` (Map<string, Song[]>) and `loadingTracks` (boolean)
 - ✅ **Added useEffect:** Watches `checkedPlaylistIds` changes and fetches tracks
+- ✅ **Auto-Check Default:** All playlists automatically checked when added to Selected Playlists table
+- ✅ **Loading Animation:** Spinner with "Loading Tracks..." message in SongsPanel
+- ✅ **Row Click Selection:** Clicking row in Selected Playlists table toggles checkbox
 - ✅ **Caching Logic:** Only fetches playlists not already in cache
 - ✅ **Parallel Fetching:** Uses `Promise.all()` to fetch multiple playlists simultaneously
 - ✅ **API Calls:** Liked Songs via `getAllSavedTracks()`, regular playlists via `getAllPlaylistTracks()`
@@ -637,6 +660,8 @@ The separate Statistics Panel has been removed. Statistics are now displayed as 
 - ✅ Caching prevents redundant API calls
 - ✅ Parallel fetching improves performance
 - ✅ Instant display for previously fetched playlists
+- ✅ Visual feedback during loading with spinner animation
+- ✅ All tracks shown by default (auto-check)
 - ✅ Graceful error handling
 - ✅ Session-based cache (cleared on refresh)
 - Update `playlistGroups` useMemo to use cached tracks from Map

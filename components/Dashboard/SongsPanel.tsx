@@ -17,9 +17,10 @@ export interface PlaylistGroup {
 
 interface SongsPanelProps {
   playlistGroups: PlaylistGroup[];
+  isLoading?: boolean;
 }
 
-export function SongsPanel({ playlistGroups }: SongsPanelProps) {
+export function SongsPanel({ playlistGroups, isLoading = false }: SongsPanelProps) {
   if (playlistGroups.length === 0) {
     return (
       <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden flex flex-col h-full">
@@ -29,25 +30,39 @@ export function SongsPanel({ playlistGroups }: SongsPanelProps) {
           </h2>
         </div>
         <div className="flex flex-col items-center justify-center py-12 px-4 text-center flex-1">
-          <svg
-            className="w-12 h-12 text-zinc-300 dark:text-zinc-600 mb-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"
-            />
-          </svg>
-          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-1">
-            No Playlists Checked
-          </h3>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Check playlists in the left panel to view their tracks here.
-          </p>
+          {isLoading ? (
+            <>
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-200 dark:border-zinc-700 border-t-blue-500 mb-4"></div>
+              <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-1">
+                Loading Tracks...
+              </h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                Fetching tracks from Spotify
+              </p>
+            </>
+          ) : (
+            <>
+              <svg
+                className="w-12 h-12 text-zinc-300 dark:text-zinc-600 mb-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"
+                />
+              </svg>
+              <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-1">
+                No Playlists Checked
+              </h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                Check playlists in the left panel to view their tracks here.
+              </p>
+            </>
+          )}
         </div>
       </div>
     );
