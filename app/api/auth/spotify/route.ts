@@ -41,6 +41,15 @@ export async function GET() {
   return response;
 }
 
+export async function DELETE() {
+  const response = NextResponse.json({ success: true });
+  
+  response.cookies.delete('spotify_auth_state');
+  response.cookies.delete('spotify_code_verifier');
+  
+  return response;
+}
+
 function generateCodeVerifier(): string {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
