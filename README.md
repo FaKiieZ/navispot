@@ -1,3 +1,5 @@
+# NavidSpot
+
 ## Spotify to Navidrome Playlist Exporter
 
 A Next.js web application that exports playlists from Spotify to Navidrome music server with flexible matching strategies. Transfer your Spotify playlists to your self-hosted Navidrome music library with intelligent track matching.
