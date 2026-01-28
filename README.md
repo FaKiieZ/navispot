@@ -1,4 +1,4 @@
-# NavidSpot
+# NaviSpot
 
 ## Spotify to Navidrome Playlist Exporter
 
