@@ -494,10 +494,194 @@ interface PlaylistTableProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   isExporting?: boolean;
+  onRefresh?: () => void;  // Refresh callback
+  isRefreshing?: boolean;  // Refresh loading state
+  loading?: boolean;  // Initial loading state
 }
 ```
 
 **Internal Components:** SortIcon, StatusBadge, PlaylistRow, LovedSongsRow
+
+---
+
+## Playlist Refresh Button (January 30, 2026)
+
+### Overview
+
+Added a refresh button to the playlist table that allows users to refetch their Spotify playlists without refreshing the page. This is useful when users update their playlists on Spotify while the app is already running.
+
+### Requirements
+
+- Add a refresh button to the PlaylistTable component
+- Position the button to the left of "showing x of x playlists" text
+- Button should be blue colored
+- Add animation to show when the playlists are being updated
+- Refetch playlists without page refresh
+- Button should be disabled during export and initial load
+
+### UI Specification
+
+```
+[Refresh Button (Blue)] Showing x of x playlists
+```
+
+### Refresh Button Details
+
+**Position:** Left of "showing x of x playlists" text in PlaylistTable stats footer
+
+**Color:** Blue (`text-blue-500` normal, `hover:text-blue-700` hover)
+
+**Animation:** Spin animation (`animate-spin`) when refreshing
+
+**Disabled States:**
+- During initial page load (`loading=true`)
+- During refresh (`isRefreshing=true`)
+- During export (`isExporting=true`)
+
+**Icon:** Refresh/rotate icon (clockwise arrows)
+
+### Implementation Details
+
+#### components/Dashboard/PlaylistTable.tsx
+
+**New Props (lines 24-26):**
+```typescript
+interface PlaylistTableProps {
+  // ... existing props
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+  loading?: boolean;
+}
+```
+
+**Refresh Button UI (lines 426-445):**
+```tsx
+<div className="flex items-center gap-3 text-sm text-zinc-500 dark:text-zinc-400">
+  <button
+    onClick={onRefresh}
+    disabled={loading || isRefreshing || isExporting}
+    className="flex-shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    <svg
+      className={`w-5 h-5 text-blue-500 hover:text-blue-700 ${isRefreshing ? "animate-spin" : ""}`}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+      />
+    </svg>
+  </button>
+  <span>
+    Showing {filteredItems.length} of {allItems.length} playlists
+    {selectedIds.size > 0 && !isExporting && (
+      <span className="ml-2 text-green-600 dark:text-green-400 font-medium">
+        ({selectedIds.size} selected)
+      </span>
+    )}
+  </span>
+</div>
+```
+
+#### components/Dashboard/Dashboard.tsx
+
+**New State (line 93):**
+```typescript
+const [refreshing, setRefreshing] = useState(false)
+```
+
+**handleRefreshPlaylists Function (lines 195-241):**
+```typescript
+const handleRefreshPlaylists = async () => {
+  if (!spotify.isAuthenticated || !spotify.token) return
+  if (isExporting || loading) return
+
+  setRefreshing(true)
+  try {
+    spotifyClient.setToken(spotify.token)
+
+    // Refetch playlists from Spotify
+    const fetchedPlaylists = await spotifyClient.getAllPlaylists()
+    setPlaylists(fetchedPlaylists)
+
+    // Update liked songs count
+    try {
+      const count = await spotifyClient.getSavedTracksCount()
+      setLikedSongsCount(count)
+    } catch {
+      setLikedSongsCount(0)
+    }
+
+    // Refresh Navidrome playlists if connected
+    if (navidrome.isConnected && navidrome.credentials && navidrome.token && navidrome.clientId) {
+      const navidromeClient = new NavidromeApiClient(
+        navidrome.credentials.url,
+        navidrome.credentials.username,
+        navidrome.credentials.password,
+        navidrome.token,
+        navidrome.clientId
+      )
+      try {
+        const navPlaylists = await navidromeClient.getPlaylists()
+        setNavidromePlaylists(navPlaylists)
+      } catch (navErr) {
+        console.warn("Failed to refresh Navidrome playlists:", navErr)
+      }
+    }
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "Failed to refresh playlists")
+  } finally {
+    setRefreshing(false)
+  }
+}
+```
+
+**PlaylistTable Props (lines 1353-1357):**
+```tsx
+<PlaylistTable
+  // ... existing props
+  onRefresh={handleRefreshPlaylists}
+  isRefreshing={refreshing}
+  loading={loading}
+/>
+```
+
+### Testing Checklist
+
+- [x] Refresh button appears to the left of "showing x of x playlists" text
+- [x] Button is blue colored
+- [x] Button spins when clicked
+- [x] Playlists are refetched from Spotify when clicked
+- [x] Button is disabled during export
+- [x] Button is disabled during initial load
+- [x] No page refresh occurs
+
+### Bug Fix During Testing
+
+**Issue:** The refresh button was not being disabled during initial load.
+
+**Fix:** Added `loading` prop to PlaylistTable and updated the button's disabled condition to: `disabled={loading || isRefreshing || isExporting}`
+
+### Benefits
+
+✅ **User Experience**
+- No need to refresh the entire page to get updated playlist data
+- Instant feedback with spinning animation
+- Consistent with modern app patterns
+
+✅ **Performance**
+- Only fetches updated data, doesn't reload entire application
+- Preserves current selection and state
+- No full page re-render
+
+✅ **Reliability**
+- Disabled during critical operations (export, initial load)
+- Clear visual feedback when refreshing
+- Error handling with user-friendly messages
 
 ---
 
@@ -515,11 +699,16 @@ interface PlaylistTableProps {
 7. Real-time selected playlists: useEffect watches selectedIds changes
 8. Track fetching: useEffect watches checkedPlaylistIds changes
 9. **Live progress updates (January 26, 2026):**
-   - Set status to 'exporting' at start of each playlist processing
-   - Matching phase: Update progress bar (0% → 100%) and statistics badges (matched/unmatched) via batchProgress callback
-   - Export phase (favorites): Update progress bar and exported count via onProgress callback
-   - Export phase (playlists): Update progress bar and exported count via onProgress callback
-   - Statistics badges calculated as aggregates from selectedPlaylistsStats
+    - Set status to 'exporting' at start of each playlist processing
+    - Matching phase: Update progress bar (0% → 100%) and statistics badges (matched/unmatched) via batchProgress callback
+    - Export phase (favorites): Update progress bar and exported count via onProgress callback
+    - Export phase (playlists): Update progress bar and exported count via onProgress callback
+    - Statistics badges calculated as aggregates from selectedPlaylistsStats
+10. **Playlist refresh button (January 30, 2026):**
+    - Added `refreshing` state to track when refresh is in progress
+    - Added `handleRefreshPlaylists` function that refetches playlists from Spotify
+    - Updated likedSongsCount during refresh
+    - Pass `onRefresh` and `isRefreshing` props to PlaylistTable
 
 ---
 

@@ -21,6 +21,9 @@ interface PlaylistTableProps {
   searchQuery: string
   onSearchChange: (query: string) => void
   isExporting?: boolean
+  onRefresh?: () => void
+  isRefreshing?: boolean
+  loading?: boolean
 }
 
 const LIKED_SONGS_ID = "liked-songs"
@@ -300,6 +303,9 @@ export function PlaylistTable({
   searchQuery,
   onSearchChange,
   isExporting = false,
+  onRefresh,
+  isRefreshing = false,
+  loading = false,
 }: PlaylistTableProps) {
   const allItems = useMemo(() => {
     const likedSongsItem: PlaylistTableItem = {
@@ -417,13 +423,34 @@ export function PlaylistTable({
             </button>
           )}
         </div>
-        <div className="text-sm text-zinc-500 dark:text-zinc-400">
-          Showing {filteredItems.length} of {allItems.length} playlists
-          {selectedIds.size > 0 && !isExporting && (
-            <span className="ml-2 text-green-600 dark:text-green-400 font-medium">
-              ({selectedIds.size} selected)
-            </span>
-          )}
+        <div className="flex items-center gap-3 text-sm text-zinc-500 dark:text-zinc-400">
+          <button
+            onClick={onRefresh}
+            disabled={loading || isRefreshing || isExporting}
+            className="flex-shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <svg
+              className={`w-5 h-5 text-blue-500 hover:text-blue-700 ${isRefreshing ? "animate-spin" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+          </button>
+          <span>
+            Showing {filteredItems.length} of {allItems.length} playlists
+            {selectedIds.size > 0 && !isExporting && (
+              <span className="ml-2 text-green-600 dark:text-green-400 font-medium">
+                ({selectedIds.size} selected)
+              </span>
+            )}
+          </span>
         </div>
       </div>
 

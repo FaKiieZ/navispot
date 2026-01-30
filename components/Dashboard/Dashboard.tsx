@@ -90,6 +90,7 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null)
   const [progressState, setProgressState] = useState<ProgressState | null>(null)
   const [likedSongsCount, setLikedSongsCount] = useState<number>(0)
+  const [refreshing, setRefreshing] = useState(false)
   const [navidromePlaylists, setNavidromePlaylists] = useState<
     NavidromePlaylist[]
   >([])
@@ -191,6 +192,56 @@ export function Dashboard() {
     navidrome.token,
     navidrome.clientId,
   ])
+
+  const handleRefreshPlaylists = async () => {
+    if (!spotify.isAuthenticated || !spotify.token) {
+      setError("Please connect to Spotify to refresh playlists.")
+      return
+    }
+
+    setRefreshing(true)
+    setError(null)
+
+    try {
+      spotifyClient.setToken(spotify.token)
+      const fetchedPlaylists = await spotifyClient.getAllPlaylists()
+      setPlaylists(fetchedPlaylists)
+
+      try {
+        const count = await spotifyClient.getSavedTracksCount()
+        setLikedSongsCount(count)
+      } catch {
+        setLikedSongsCount(0)
+      }
+
+      if (
+        navidrome.isConnected &&
+        navidrome.credentials &&
+        navidrome.token &&
+        navidrome.clientId
+      ) {
+        const navidromeClient = new NavidromeApiClient(
+          navidrome.credentials.url,
+          navidrome.credentials.username,
+          navidrome.credentials.password,
+          navidrome.token,
+          navidrome.clientId,
+        )
+        try {
+          const navPlaylists = await navidromeClient.getPlaylists()
+          setNavidromePlaylists(navPlaylists)
+        } catch (navErr) {
+          console.warn("Failed to fetch Navidrome playlists:", navErr)
+        }
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to refresh playlists",
+      )
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   useEffect(() => {
     if (!spotify.isAuthenticated) return
@@ -1301,6 +1352,9 @@ export function Dashboard() {
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
       isExporting={isExporting}
+      onRefresh={handleRefreshPlaylists}
+      isRefreshing={refreshing}
+      loading={loading}
     />
   )
 
