@@ -151,7 +151,6 @@ export class SpotifyClient {
       headers: {
         Authorization: `Bearer ${this.token.accessToken}`,
         'Content-Type': 'application/json',
-        ...(bypassCache ? { 'Cache-Control': 'no-cache, no-store, max-age=0' } : {}),
         ...options.headers,
       },
     });
