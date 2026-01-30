@@ -650,7 +650,7 @@ export function Dashboard() {
             ? isPlaylistUpToDate(cachedData, item.snapshot_id || "")
             : false
           const hasNavidromePlaylist = !!cachedData?.navidromePlaylistId
-          useDifferentialMatching = upToDate && hasNavidromePlaylist
+          useDifferentialMatching = hasNavidromePlaylist
         }
 
         progress = updateProgress(progress, {
