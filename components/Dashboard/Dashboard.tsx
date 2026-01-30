@@ -204,8 +204,28 @@ export function Dashboard() {
 
     try {
       spotifyClient.setToken(spotify.token)
+
+      // Capture old snapshot IDs for comparison
+      const oldSnapshots = new Map(
+        playlists.map(p => [p.id, p.snapshot_id])
+      )
+
       const fetchedPlaylists = await spotifyClient.getAllPlaylists(undefined, true)
       setPlaylists(fetchedPlaylists)
+
+      // Compare snapshot IDs and invalidate cache for changed playlists
+      const changedPlaylistIds = fetchedPlaylists
+        .filter(p => oldSnapshots.has(p.id))
+        .filter(p => oldSnapshots.get(p.id) !== p.snapshot_id)
+        .map(p => p.id)
+
+      if (changedPlaylistIds.length > 0) {
+        setPlaylistTracksCache(prev => {
+          const newCache = new Map(prev)
+          changedPlaylistIds.forEach(id => newCache.delete(id))
+          return newCache
+        })
+      }
 
       try {
         const count = await spotifyClient.getSavedTracksCount(undefined, true)
