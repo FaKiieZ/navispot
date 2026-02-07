@@ -36,7 +36,7 @@ export function useExportPreview({ statistics, existingPlaylists = [] }: UseExpo
 
   const setMode = useCallback((mode: ExportMode) => {
     setSelectedMode(mode);
-    if (mode !== 'append' && mode !== 'overwrite') {
+    if (mode !== 'append' && mode !== 'overwrite' && mode !== 'sync') {
       setSelectedPlaylistId(undefined);
     }
   }, []);

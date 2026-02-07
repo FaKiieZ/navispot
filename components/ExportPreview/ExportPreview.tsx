@@ -147,6 +147,42 @@ export function ExportPreview({
               )}
 
               <label className={`flex cursor-pointer items-center rounded-lg border p-3 transition-colors ${
+                selectedMode === 'sync'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:bg-gray-50'
+              }`}>
+                <input
+                  type="radio"
+                  name="exportMode"
+                  value="sync"
+                  checked={selectedMode === 'sync'}
+                  onChange={() => setMode('sync')}
+                  className="h-4 w-4 text-blue-600"
+                />
+                <div className="ml-3 flex-1">
+                  <div className="font-medium text-gray-900">Sync to Existing</div>
+                  <div className="text-sm text-gray-500">
+                    Add only missing tracks to an existing playlist
+                  </div>
+                </div>
+              </label>
+
+              {selectedMode === 'sync' && (
+                <select
+                  value={selectedPlaylistId || ''}
+                  onChange={(e) => setSelectedPlaylistId(e.target.value || undefined)}
+                  className="ml-7 w-full rounded-lg border border-gray-300 p-2 text-sm"
+                >
+                  <option value="">Select a playlist</option>
+                  {existingPlaylists.map((playlist) => (
+                    <option key={playlist.id} value={playlist.id}>
+                      {playlist.name} ({playlist.songCount} tracks)
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <label className={`flex cursor-pointer items-center rounded-lg border p-3 transition-colors ${
                 selectedMode === 'overwrite'
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-gray-200 hover:bg-gray-50'
