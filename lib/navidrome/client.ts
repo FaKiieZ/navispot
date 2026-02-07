@@ -252,17 +252,18 @@ export class NavidromeApiClient {
 
     const tracksResponse = await this._makeNativeRequest<{
       items: NavidromeNativeSong[];
-    }>(`/api/playlist/${playlistId}/tracks`, { _start: 0, _end: 1000 }, signal);
+    } | NavidromeNativeSong[]>(`/api/playlist/${playlistId}/tracks`, { _start: 0, _end: 1000 }, signal);
 
-    console.log('getPlaylist tracksResponse type:', Array.isArray(tracksResponse) ? 'array' : 'object');
-    // @ts-ignore
-    console.log('getPlaylist tracksResponse items:', tracksResponse.items ? 'present' : 'missing');
-    // @ts-ignore
-    console.log('getPlaylist tracksResponse length:', Array.isArray(tracksResponse) ? tracksResponse.length : 'N/A');
+    let tracks: NavidromeNativeSong[] = [];
+    if (Array.isArray(tracksResponse)) {
+      tracks = tracksResponse;
+    } else if ('items' in tracksResponse && Array.isArray(tracksResponse.items)) {
+      tracks = tracksResponse.items;
+    }
 
     return {
       playlist,
-      tracks: tracksResponse.items || [],
+      tracks,
     };
   }
 
