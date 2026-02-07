@@ -433,10 +433,10 @@ export function Dashboard() {
               } else {
                 const playlistTracks =
                   await spotifyClient.getAllPlaylistTracks(id)
-                tracks = playlistTracks.map((t) => t.track).filter(t => !!t)
+                tracks = playlistTracks.map((t) => t.track)
               }
 
-              const songs: Song[] = tracks.map((track) => ({
+              const songs: Song[] = tracks.filter(t => !!t).map((track) => ({
                 spotifyTrackId: track.id,
                 title: track.name,
                 album: track.album?.name || "Unknown",
