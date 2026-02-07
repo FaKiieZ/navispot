@@ -8,11 +8,11 @@ import {
 } from '@/lib/export/incremental-update-orchestrator';
 import { ExportProgress } from '@/types/export';
 
-interface UseIncrementalUpdateOptions {
+export interface UseIncrementalUpdateOptions {
   navidromeClient: NavidromeApiClient;
 }
 
-interface UseIncrementalUpdateReturn {
+export interface UseIncrementalUpdateReturn {
   isUpdating: boolean;
   progress: ExportProgress | null;
   result: UpdateResult | null;
