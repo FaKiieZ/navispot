@@ -436,14 +436,17 @@ export function Dashboard() {
                 tracks = playlistTracks.map((t) => t.track)
               }
 
-              const songs: Song[] = tracks.filter(t => !!t).map((track) => ({
+              const songs: Song[] = tracks.filter(t => !!t).map((track) => {
+                console.log("Mapping track:", track)
+                return {
                 spotifyTrackId: track.id,
                 title: track.name,
                 album: track.album?.name || "Unknown",
                 artist:
                   track.artists?.map((a) => a.name).join(", ") || "Unknown",
                 duration: formatDuration(track.duration_ms),
-              }))
+              }}
+            )
 
               newCache.set(id, songs)
 
