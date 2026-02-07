@@ -332,23 +332,11 @@ export class DefaultPlaylistExporter implements PlaylistExporter {
   async syncPlaylist(playlistId: string, songIds: string[], signal?: AbortSignal): Promise<{ success: boolean; addedCount: number }> {
     try {
       const currentPlaylist = await this.navidromeClient.getPlaylist(playlistId, signal);
-      const currentTrackIds = new Set(currentPlaylist.tracks.map((t) => t.id));
-
-      console.log(`Sync Debug: Playlist ${playlistId} has ${currentPlaylist.tracks.length} tracks.`);
-      if (currentPlaylist.tracks.length > 0) {
-          console.log(`Sync Debug: First existing track ID: ${currentPlaylist.tracks[0].id}`);
-          console.log(`Sync Debug: First existing track FULL: ${JSON.stringify(currentPlaylist.tracks[0])}`);
-          // @ts-ignore
-          if (currentPlaylist.tracks[0].songId) console.log(`Sync Debug: Found songId: ${currentPlaylist.tracks[0].songId}`);
-          // @ts-ignore
-          if (currentPlaylist.tracks[0].entry_id) console.log(`Sync Debug: Found entry_id: ${currentPlaylist.tracks[0].entry_id}`);
-      }
-      if (songIds.length > 0) {
-          console.log(`Sync Debug: First new song ID: ${songIds[0]}`);
-      }
+      // When fetching tracks from a playlist, the 'id' is the playlist entry ID,
+      // and 'mediaFileId' is the actual song ID. Passing 'mediaFileId' is required for correct matching.
+      const currentTrackIds = new Set(currentPlaylist.tracks.map((t) => t.mediaFileId || t.id));
 
       const newSongIds = songIds.filter((id) => !currentTrackIds.has(id));
-      console.log(`Sync Debug: Found ${newSongIds.length} new songs to add out of ${songIds.length} candidates.`);
 
       if (newSongIds.length === 0) {
         return { success: true, addedCount: 0 };
