@@ -1,9 +1,9 @@
-import { SpotifyTrack } from '@/types/spotify';
-import { NavidromeSong, NavidromeNativeSong } from '@/types/navidrome';
-import { TrackMatch, MatchStrategy, MatchStatus } from '@/types/matching';
-import { NavidromeApiClient } from '@/lib/navidrome/client';
-import { matchByStrict } from './strict-matcher';
-import { findBestMatch } from './fuzzy';
+import { SpotifyTrack } from "@/types/spotify";
+import { NavidromeSong, NavidromeNativeSong } from "@/types/navidrome";
+import { TrackMatch, MatchStrategy, MatchStatus } from "@/types/matching";
+import { NavidromeApiClient } from "@/lib/navidrome/client";
+import { matchByStrict } from "./strict-matcher";
+import { findBestMatch } from "./fuzzy";
 
 export interface MatchingOrchestratorOptions {
   enableISRC: boolean;
@@ -37,7 +37,9 @@ export interface OrchestratedMatchResult {
   overallStatus: MatchStatus;
 }
 
-export function convertNativeSongToNavidromeSong(nativeSong: NavidromeNativeSong): NavidromeSong {
+export function convertNativeSongToNavidromeSong(
+  nativeSong: NavidromeNativeSong,
+): NavidromeSong {
   return {
     id: nativeSong.id,
     title: nativeSong.title,
@@ -52,9 +54,16 @@ export async function matchTrack(
   client: NavidromeApiClient,
   spotifyTrack: SpotifyTrack,
   options: Partial<MatchingOrchestratorOptions> = {},
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<TrackMatch> {
-  const opts: MatchingOrchestratorOptions = { ...defaultMatchingOptions, ...options };
+  if (!spotifyTrack || !spotifyTrack.name) {
+    throw new Error("Invalid Spotify track: track or track name is missing");
+  }
+
+  const opts: MatchingOrchestratorOptions = {
+    ...defaultMatchingOptions,
+    ...options,
+  };
   const strategyResults: MatchingStrategyResult[] = [];
 
   const trackTitle = spotifyTrack.name;
@@ -62,7 +71,11 @@ export async function matchTrack(
   let candidates: NavidromeSong[] = [];
   let nativeCandidates: NavidromeNativeSong[] = [];
 
-  nativeCandidates = await client.searchByTitle(trackTitle, opts.maxSearchResults, signal);
+  nativeCandidates = await client.searchByTitle(
+    trackTitle,
+    opts.maxSearchResults,
+    signal,
+  );
   candidates = nativeCandidates.map(convertNativeSongToNavidromeSong);
 
   const spotifyDurationSec = spotifyTrack.duration_ms / 1000;
@@ -75,9 +88,9 @@ export async function matchTrack(
       return {
         spotifyTrack,
         navidromeSong: isrcMatch,
-        matchStrategy: 'isrc',
+        matchStrategy: "isrc",
         matchScore: 1,
-        status: 'matched',
+        status: "matched",
       };
     }
 
@@ -91,17 +104,21 @@ export async function matchTrack(
       return {
         spotifyTrack,
         navidromeSong: durationMatch,
-        matchStrategy: 'isrc',
+        matchStrategy: "isrc",
         matchScore: 1,
-        status: 'matched',
+        status: "matched",
       };
     }
   }
 
   if (opts.enableFuzzy) {
-    const fuzzyResult = findBestMatch(spotifyTrack, candidates, opts.fuzzyThreshold);
+    const fuzzyResult = findBestMatch(
+      spotifyTrack,
+      candidates,
+      opts.fuzzyThreshold,
+    );
     const matchResult: MatchingStrategyResult = {
-      strategy: 'fuzzy',
+      strategy: "fuzzy",
       matched: fuzzyResult.bestMatch !== undefined,
       ambiguous: fuzzyResult.hasAmbiguous,
       navidromeSong: fuzzyResult.bestMatch?.song,
@@ -114,9 +131,9 @@ export async function matchTrack(
       return {
         spotifyTrack,
         navidromeSong: fuzzyResult.bestMatch.song,
-        matchStrategy: 'fuzzy',
+        matchStrategy: "fuzzy",
         matchScore: fuzzyResult.bestMatch.score,
-        status: 'matched',
+        status: "matched",
         candidates: fuzzyResult.matches.map((m) => m.song),
       };
     }
@@ -125,20 +142,20 @@ export async function matchTrack(
   if (opts.enableStrict) {
     const strictResult = await matchByStrict(client, spotifyTrack);
     strategyResults.push({
-      strategy: 'strict',
-      matched: strictResult.status === 'matched',
+      strategy: "strict",
+      matched: strictResult.status === "matched",
       ambiguous: false,
       navidromeSong: strictResult.navidromeSong,
       score: strictResult.matchScore,
     });
 
-    if (strictResult.status === 'matched') {
+    if (strictResult.status === "matched") {
       return {
         spotifyTrack,
         navidromeSong: strictResult.navidromeSong,
-        matchStrategy: 'strict',
+        matchStrategy: "strict",
         matchScore: 1,
-        status: 'matched',
+        status: "matched",
       };
     }
   }
@@ -146,7 +163,7 @@ export async function matchTrack(
   const hasAmbiguous = strategyResults.some((r) => r.ambiguous);
   const bestResult = strategyResults.reduce(
     (best, current) => (current.score > best.score ? current : best),
-    { score: -1 } as MatchingStrategyResult
+    { score: -1 } as MatchingStrategyResult,
   );
 
   return {
@@ -154,7 +171,7 @@ export async function matchTrack(
     navidromeSong: bestResult.navidromeSong,
     matchStrategy: bestResult.strategy,
     matchScore: bestResult.score > 0 ? bestResult.score : 0,
-    status: hasAmbiguous ? 'ambiguous' : 'unmatched',
+    status: hasAmbiguous ? "ambiguous" : "unmatched",
     candidates: bestResult.candidates,
   };
 }
@@ -163,13 +180,13 @@ export async function matchTracks(
   client: NavidromeApiClient,
   spotifyTracks: SpotifyTrack[],
   options: Partial<MatchingOrchestratorOptions> = {},
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<TrackMatch[]> {
   const results: TrackMatch[] = [];
 
   for (const track of spotifyTracks) {
     if (signal?.aborted) {
-      throw new DOMException('Export was cancelled', 'AbortError');
+      throw new DOMException("Export was cancelled", "AbortError");
     }
     const match = await matchTrack(client, track, options, signal);
     results.push(match);
@@ -199,10 +216,10 @@ export function getMatchStatistics(matches: TrackMatch[]): {
   };
 
   for (const match of matches) {
-    if (match.status === 'matched') {
+    if (match.status === "matched") {
       stats.matched++;
       stats.byStrategy[match.matchStrategy]++;
-    } else if (match.status === 'ambiguous') {
+    } else if (match.status === "ambiguous") {
       stats.ambiguous++;
     } else {
       stats.unmatched++;
@@ -213,12 +230,12 @@ export function getMatchStatistics(matches: TrackMatch[]): {
 }
 
 export function getAmbiguousMatches(matches: TrackMatch[]): TrackMatch[] {
-  return matches.filter((m) => m.status === 'ambiguous');
+  return matches.filter((m) => m.status === "ambiguous");
 }
 
 export function getUnmatchedTracks(matches: TrackMatch[]): SpotifyTrack[] {
   return matches
-    .filter((m) => m.status === 'unmatched' || m.status === 'ambiguous')
+    .filter((m) => m.status === "unmatched" || m.status === "ambiguous")
     .map((m) => m.spotifyTrack);
 }
 
@@ -228,7 +245,7 @@ export function getMatchedTracks(matches: TrackMatch[]): Array<{
   strategy: MatchStrategy;
 }> {
   return matches
-    .filter((m) => m.status === 'matched' && m.navidromeSong)
+    .filter((m) => m.status === "matched" && m.navidromeSong)
     .map((m) => ({
       spotifyTrack: m.spotifyTrack,
       navidromeSong: m.navidromeSong!,

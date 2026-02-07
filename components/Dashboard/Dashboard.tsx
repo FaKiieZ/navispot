@@ -719,12 +719,12 @@ export function Dashboard() {
 
         if ("isLikedSongs" in item && item.isLikedSongs) {
           const savedTracks = await spotifyClient.getAllSavedTracks(signal)
-          tracks = savedTracks.map((t) => t.track)
+          tracks = savedTracks.map((t) => t.track).filter((t) => t != null)
           isLikedSongs = true
         } else {
           tracks = (await spotifyClient.getAllPlaylistTracks(item.id, signal)).map(
             (t) => t.track,
-          )
+          ).filter((t) => t != null)
 
           // Check for cached export data
           cachedData = loadPlaylistExportData(item.id)
