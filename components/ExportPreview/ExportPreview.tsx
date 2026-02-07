@@ -56,7 +56,7 @@ export function ExportPreview({
           </p>
         </div>
 
-        <div className="space-y-6 px-6 py-4">
+        <div className="space-y-6 px-6 py-4 max-h-[60vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="rounded-lg bg-gray-50 p-3 text-center">
               <div className="text-2xl font-bold text-gray-900">
