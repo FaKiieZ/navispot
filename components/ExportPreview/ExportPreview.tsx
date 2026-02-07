@@ -111,6 +111,42 @@ export function ExportPreview({
               </label>
 
               <label className={`flex cursor-pointer items-center rounded-lg border p-3 transition-colors ${
+                selectedMode === 'update'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:bg-gray-50'
+              }`}>
+                <input
+                  type="radio"
+                  name="exportMode"
+                  value="update"
+                  checked={selectedMode === 'update'}
+                  onChange={() => setMode('update')}
+                  className="h-4 w-4 text-blue-600"
+                />
+                <div className="ml-3 flex-1">
+                  <div className="font-medium text-gray-900">Update Existing</div>
+                  <div className="text-sm text-gray-500">
+                    Add new tracks, keep existing ones
+                  </div>
+                </div>
+              </label>
+
+              {selectedMode === 'update' && (
+                <select
+                  value={selectedPlaylistId || ''}
+                  onChange={(e) => setSelectedPlaylistId(e.target.value || undefined)}
+                  className="ml-7 w-full rounded-lg border border-gray-300 p-2 text-sm"
+                >
+                  <option value="">Select a playlist to update</option>
+                  {existingPlaylists.map((playlist) => (
+                    <option key={playlist.id} value={playlist.id}>
+                      {playlist.name} ({playlist.songCount} tracks)
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <label className={`flex cursor-pointer items-center rounded-lg border p-3 transition-colors ${
                 selectedMode === 'append'
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-gray-200 hover:bg-gray-50'

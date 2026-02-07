@@ -257,6 +257,24 @@ export class NavidromeApiClient {
     };
   }
 
+  /**
+   * Get playlist with tracks and an optimized Set for O(1) duplicate checking
+   * Useful for incremental updates where we need to check if tracks already exist
+   */
+  async getPlaylistWithFullTracks(playlistId: string, signal?: AbortSignal): Promise<{
+    playlist: NavidromePlaylist;
+    tracks: NavidromeNativeSong[];
+    trackIdSet: Set<string>;
+  }> {
+    const playlistData = await this.getPlaylist(playlistId, signal);
+    const trackIdSet = new Set(playlistData.tracks.map((t) => t.id));
+
+    return {
+      ...playlistData,
+      trackIdSet,
+    };
+  }
+
   async createPlaylist(name: string, songIds: string[], signal?: AbortSignal): Promise<{
     id: string;
     success: boolean;

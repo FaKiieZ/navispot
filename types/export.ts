@@ -8,6 +8,12 @@ export interface ExportOptions {
   skipUnmatched: boolean;
 }
 
+export interface UpdateOptions {
+  mode: 'update';
+  existingPlaylistId: string;
+  skipUnmatched?: boolean;
+}
+
 export interface MatchStatistics {
   total: number;
   matched: number;
@@ -16,11 +22,18 @@ export interface MatchStatistics {
   matchedPercentage: number;
 }
 
+export interface UpdatePreviewStatistics {
+  totalSpotifyTracks: number;
+  alreadyInPlaylist: number;
+  estimatedToAdd: number;
+  needsReMatch: number;
+}
+
 export interface ExportPreviewProps {
   playlistName: string;
   statistics: MatchStatistics;
   existingPlaylists?: Array<{ id: string; name: string }>;
-  onConfirm: (options: ExportOptions) => void;
+  onConfirm: (options: ExportOptions | UpdateOptions) => void;
   onCancel: () => void;
 }
 
