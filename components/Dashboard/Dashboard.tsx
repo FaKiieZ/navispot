@@ -179,7 +179,6 @@ export function Dashboard() {
           )
           try {
             const navPlaylists = await navidromeClient.getPlaylists()
-            console.log("Fetched Navidrome playlists:", navPlaylists)
             setNavidromePlaylists(navPlaylists)
           } catch (navErr) {
             console.error("Failed to fetch Navidrome playlists:", navErr)

@@ -225,9 +225,6 @@ export class NavidromeApiClient {
       const response = await this._makeNativeRequest<{
         items: NavidromePlaylist[];
       }>('/api/playlist', params, signal);
-      
-      console.log('getPlaylists response:', JSON.stringify(response).substring(0, 200));
-      console.log('totalCount:', this._totalCount);
 
       if (Array.isArray(response)) {
           // Handle case where response is directly an array
