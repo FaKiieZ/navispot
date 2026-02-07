@@ -45,6 +45,8 @@ import {
 } from "@/lib/export/track-export-cache"
 import { PlaylistTableItem, PlaylistInfo } from "@/types/playlist-table"
 import { TrackMatch } from "@/types/matching"
+import { ExportPreview } from "@/components/ExportPreview/ExportPreview"
+import { ExportOptions, MatchStatistics } from "@/types/export"
 import Image from "next/image"
 import NavispotLogo from "@/public/navispot.png"
 
@@ -112,6 +114,14 @@ export function Dashboard() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [showCancel, setShowCancel] = useState(false)
   const [showCancelConfirmation, setShowCancelConfirmation] = useState(false)
+  
+  // Export Preview State
+  const [showExportPreview, setShowExportPreview] = useState(false)
+  const [previewPlaylistId, setPreviewPlaylistId] = useState<string | null>(null)
+  const [previewStatistics, setPreviewStatistics] = useState<MatchStatistics | null>(null)
+  const [previewMatchResults, setPreviewMatchResults] = useState<TrackMatch[] | null>(null)
+  const [previewPlaylistName, setPreviewPlaylistName] = useState<string>("")
+
   const [checkedPlaylistIds, setCheckedPlaylistIds] = useState<Set<string>>(
     new Set(),
   )
@@ -614,7 +624,246 @@ export function Dashboard() {
     [],
   )
 
-  const handleStartExport = async () => {
+  const prepareExportPreview = async (item: PlaylistItem | SpotifyPlaylist) => {
+    if (!spotify.token || !navidrome.credentials) return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      spotifyClient.setToken(spotify.token)
+      const navidromeClient = new NavidromeApiClient(
+        navidrome.credentials.url,
+        navidrome.credentials.username,
+        navidrome.credentials.password,
+        navidrome.token ?? undefined,
+        navidrome.clientId ?? undefined,
+      )
+
+      const batchMatcher = createBatchMatcher(spotifyClient, navidromeClient)
+      const matcherOptions: BatchMatcherOptions = {
+        enableISRC: true,
+        enableFuzzy: true,
+        enableStrict: true,
+        fuzzyThreshold: 0.8,
+      }
+
+      let tracks: SpotifyTrack[]
+      let isLikedSongs = false
+      let cachedData: PlaylistExportData | undefined = undefined
+
+      if ("isLikedSongs" in item && item.isLikedSongs) {
+        const savedTracks = await spotifyClient.getAllSavedTracks()
+        tracks = savedTracks.map((t) => t.track).filter((t) => t != null)
+        isLikedSongs = true
+      } else {
+        tracks = (await spotifyClient.getAllPlaylistTracks(item.id)).map(
+          (t) => t.track,
+        ).filter((t) => t != null)
+
+        cachedData = loadPlaylistExportData(item.id)
+      }
+
+      const result = await batchMatcher.matchTracks(tracks, matcherOptions)
+      const matches = result.matches
+      const statistics = getMatchStatistics(matches)
+
+      setPreviewPlaylistId(item.id)
+      setPreviewPlaylistName(item.name)
+      setPreviewStatistics({
+        ...statistics,
+        matchedPercentage: statistics.total > 0 ? Math.round((statistics.matched / statistics.total) * 100) : 0
+      })
+      setPreviewMatchResults(matches)
+      setShowExportPreview(true)
+      setIsExporting(false) // Ready for user input
+      setShowConfirmation(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to prepare export preview")
+      setIsExporting(false) 
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleConfirmExport = async (options: ExportOptions) => {
+    if (!previewPlaylistId || !previewMatchResults || !spotify.token || !navidrome.credentials) return
+    
+    setShowExportPreview(false)
+    setIsExporting(true)
+    isExportingRef.current = true
+    
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+    const signal = abortController.signal
+
+    try {
+      const navidromeClient = new NavidromeApiClient(
+        navidrome.credentials.url,
+        navidrome.credentials.username,
+        navidrome.credentials.password,
+        navidrome.token ?? undefined,
+        navidrome.clientId ?? undefined,
+      )
+      
+      const playlistExporter = createPlaylistExporter(navidromeClient)
+      
+      // Initial Progress
+      let progress = createInitialProgressState(previewMatchResults.length)
+      setProgressState(progress)
+      
+      // Reconstruct the item to export based on previewPlaylistId
+      let item: PlaylistItem | SpotifyPlaylist | undefined
+      if (previewPlaylistId === LIKED_SONGS_ID) {
+          item = { ...LIKED_SONGS_ITEM, tracks: { total: likedSongsCount } }
+      } else {
+          item = playlists.find(p => p.id === previewPlaylistId)
+      }
+
+      if (!item) {
+          throw new Error("Playlist not found")
+      }
+
+      setSelectedPlaylistsStats([{
+        id: item.id,
+        name: item.name,
+        matched: previewStatistics?.matched || 0,
+        unmatched: previewStatistics?.unmatched || 0,
+        exported: 0,
+        failed: 0,
+        total: previewMatchResults.length,
+        status: "exporting",
+        progress: 0
+      }])
+
+      const exporterOptions: PlaylistExporterOptions = {
+        mode: options.mode,
+        existingPlaylistId: options.existingPlaylistId,
+        skipUnmatched: options.skipUnmatched,
+        cachedData: loadPlaylistExportData(previewPlaylistId) || undefined,
+        signal,
+        onProgress: async (exportProgress) => {
+           progress = updateProgress(progress, {
+                phase: exportProgress.status === "completed" ? "completed" : "exporting",
+                progress: {
+                  current: exportProgress.current,
+                  total: exportProgress.total,
+                  percent: exportProgress.percent,
+                },
+                statistics: {
+                  matched: previewStatistics?.matched || 0,
+                  unmatched: previewStatistics?.unmatched || 0,
+                  exported: exportProgress.current,
+                  failed: 0,
+                },
+           })
+           setProgressState({ ...progress })
+           setSelectedPlaylistsStats(prev => prev.map(stat => stat.id === previewPlaylistId ? {
+               ...stat,
+               progress: exportProgress.percent,
+               exported: exportProgress.current
+           } : stat))
+        }
+      }
+
+      let result
+      if (previewPlaylistId === LIKED_SONGS_ID) {
+           result = await playlistExporter.exportPlaylist(
+            "Liked Songs",
+            previewMatchResults,
+            exporterOptions
+          )
+      } else {
+           result = await playlistExporter.exportPlaylist(
+            previewPlaylistName,
+            previewMatchResults,
+            exporterOptions
+          )
+      }
+      
+      if (result.success) {
+           // Update cache logic
+           const tracksData: Record<string, TrackExportStatus> = {}
+           previewMatchResults.forEach(match => {
+                 tracksData[match.spotifyTrack.id] = {
+                  spotifyTrackId: match.spotifyTrack.id,
+                  navidromeSongId: match.navidromeSong?.id,
+                  status: match.status,
+                  matchStrategy: match.matchStrategy,
+                  matchScore: match.matchScore,
+                  matchedAt: new Date().toISOString(),
+                 }
+           })
+           
+           const updatedCache: PlaylistExportData = {
+              spotifyPlaylistId: item.id,
+              spotifySnapshotId: item.snapshot_id || "",
+              playlistName: item.name,
+              navidromePlaylistId: result.playlistId,
+              exportedAt: new Date().toISOString(),
+              trackCount: previewMatchResults.length,
+              tracks: tracksData,
+              statistics: {
+                total: previewMatchResults.length,
+                matched: previewStatistics?.matched || 0,
+                unmatched: previewStatistics?.unmatched || 0,
+                ambiguous: previewStatistics?.ambiguous || 0
+              }
+           }
+           savePlaylistExportData(item.id, updatedCache)
+           setTrackExportCache(prev => new Map(prev).set(item.id, updatedCache))
+           
+           setSelectedPlaylistsStats(prev => prev.map(stat => stat.id === previewPlaylistId ? {
+               ...stat,
+               status: "exported",
+               progress: 100,
+               exported: result.statistics.exported
+           } : stat))
+           
+           setShowSuccess(true)
+           setTimeout(() => setShowSuccess(false), 5000)
+      }
+
+    } catch (err) {
+      console.error(err)
+      setError(err instanceof Error ? err.message : "Export failed during execution")
+    } finally {
+      setIsExporting(false)
+      isExportingRef.current = false
+      setPreviewMatchResults(null)
+      setPreviewStatistics(null)
+      setPreviewPlaylistId(null)
+    }
+  }
+
+  const handleMainExportClick = () => {
+    if (isExporting) {
+      handleCancelExport()
+      return
+    }
+
+    const hasLikedSongs = selectedIds.has(LIKED_SONGS_ID)
+    const selectedCount = selectedIds.size
+
+    if (selectedCount === 1) {
+      let item: PlaylistItem | SpotifyPlaylist | undefined
+      if (hasLikedSongs) {
+        item = { ...LIKED_SONGS_ITEM, tracks: { total: likedSongsCount } }
+      } else {
+        item = playlists.find((p) => selectedIds.has(p.id))
+      }
+
+      if (item) {
+        prepareExportPreview(item)
+        return
+      }
+    }
+
+    // Default to batch confirmation
+    setShowConfirmation(true)
+  }
+
+  const handleBatchExport = async () => {
     if (!spotify.isAuthenticated || !spotify.token || !navidrome.credentials) {
       setError("Please connect both Spotify and Navidrome to export playlists.")
       return
@@ -640,6 +889,8 @@ export function Dashboard() {
     setIsExporting(true)
     setShowConfirmation(false)
     setError(null)
+
+
 
     const abortController = new AbortController()
     abortControllerRef.current = abortController
@@ -1322,7 +1573,7 @@ export function Dashboard() {
         {/* Export Button - Right Side */}
         <button
           onClick={
-            isExporting ? handleCancelExport : () => setShowConfirmation(true)
+            isExporting ? handleCancelExport : handleMainExportClick
           }
           disabled={!isExporting && selectedIds.size === 0}
           className={`rounded-lg px-4 py-2 text-sm font-medium shadow-lg transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-lg hover:shadow-xl ${
@@ -1511,9 +1762,24 @@ export function Dashboard() {
       <ConfirmationPopup
         isOpen={showConfirmation}
         onClose={() => setShowConfirmation(false)}
-        onConfirm={handleStartExport}
+        onConfirm={handleBatchExport}
         playlists={confirmationPlaylists}
       />
+      
+      {showExportPreview && previewStatistics && (
+        <ExportPreview
+          playlistName={previewPlaylistName}
+          statistics={previewStatistics}
+          existingPlaylists={navidromePlaylists}
+          onConfirm={handleConfirmExport}
+          onCancel={() => {
+            setShowExportPreview(false)
+            setPreviewMatchResults(null)
+            setPreviewStatistics(null)
+            setPreviewPlaylistId(null)
+          }}
+        />
+      )}
       
       <ExportLayoutManager
         selectedPlaylistsSection={selectedPlaylistsSection}
