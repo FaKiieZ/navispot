@@ -52,7 +52,7 @@ export class SpotifyClient {
       offset += limit;
     }
 
-    return allTracks;
+    return allTracks.filter((t) => !!t);
   }
 
   async getSavedTracks(limit: number = 50, offset: number = 0, signal?: AbortSignal, bypassCache: boolean = false): Promise<SpotifySavedTracksResponse> {
@@ -78,7 +78,7 @@ export class SpotifyClient {
       offset += limit;
     }
 
-    return allTracks;
+    return allTracks.filter((t) => !!t);
   }
 
   async getSavedTracksCount(signal?: AbortSignal, bypassCache: boolean = false): Promise<number> {

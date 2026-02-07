@@ -175,8 +175,6 @@ export function Dashboard() {
           }
         }
       } catch (err) {
-        console.error('[Dashboard] fetchData error - STACK TRACE:')
-        console.error(err)
         setError(
           err instanceof Error ? err.message : "Failed to fetch playlists",
         )
@@ -265,8 +263,6 @@ export function Dashboard() {
         }
       }
     } catch (err) {
-      console.error('[Dashboard] handleRefreshPlaylists error - STACK TRACE:')
-      console.error(err)
       setError(
         err instanceof Error ? err.message : "Failed to refresh playlists",
       )
@@ -430,7 +426,7 @@ export function Dashboard() {
         await Promise.all(
           uncachedIds.map(async (id) => {
             try {
-              let tracks: (SpotifyTrack | null)[]
+              let tracks
               if (id === LIKED_SONGS_ID) {
                 const savedTracks = await spotifyClient.getAllSavedTracks()
                 tracks = savedTracks.map((t) => t.track)
@@ -440,17 +436,14 @@ export function Dashboard() {
                 tracks = playlistTracks.map((t) => t.track)
               }
 
-              const validTracks = tracks.filter((t): t is SpotifyTrack => t !== null && t !== undefined)
-              const songs: Song[] = validTracks.map((track) => {
-                return {
-                  spotifyTrackId: track.id,
-                  title: track.name,
-                  album: track.album?.name || "Unknown",
-                  artist:
-                    track.artists?.map((a) => a.name).join(", ") || "Unknown",
-                  duration: formatDuration(track.duration_ms),
-                }
-              })
+              const songs: Song[] = tracks.map((track) => ({
+                spotifyTrackId: track.id,
+                title: track.name,
+                album: track.album?.name || "Unknown",
+                artist:
+                  track.artists?.map((a) => a.name).join(", ") || "Unknown",
+                duration: formatDuration(track.duration_ms),
+              }))
 
               newCache.set(id, songs)
 
@@ -719,12 +712,12 @@ export function Dashboard() {
 
         if ("isLikedSongs" in item && item.isLikedSongs) {
           const savedTracks = await spotifyClient.getAllSavedTracks(signal)
-          tracks = savedTracks.map((t) => t.track).filter((t) => t != null)
+          tracks = savedTracks.map((t) => t.track)
           isLikedSongs = true
         } else {
           tracks = (await spotifyClient.getAllPlaylistTracks(item.id, signal)).map(
             (t) => t.track,
-          ).filter((t) => t != null)
+          )
 
           // Check for cached export data
           cachedData = loadPlaylistExportData(item.id)
@@ -1213,8 +1206,6 @@ export function Dashboard() {
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Export failed"
-      console.error('[Dashboard] handleStartExport error - STACK TRACE:')
-      console.error(err)
 
       if (err instanceof DOMException && err.name === 'AbortError') {
         setShowCancel(true)
@@ -1222,7 +1213,6 @@ export function Dashboard() {
           setShowCancel(false)
         }, 3000)
       } else {
-        console.error('[Dashboard] Setting error in UI:', errorMessage)
         setError(errorMessage)
         setProgressState({
           phase: "error",
