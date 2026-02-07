@@ -1,4 +1,4 @@
-import { NavidromeApiClient, parseExportMetadata } from '@/lib/navidrome/client';
+import { NavidromeApiClient } from '@/lib/navidrome/client';
 import { TrackMatch } from '@/types/matching';
 
 export type ExportMode = 'create' | 'append' | 'overwrite' | 'update';

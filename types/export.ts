@@ -1,6 +1,6 @@
-import type { ExportMode } from '@/lib/export/playlist-exporter';
+import type { ExportMode, ExportProgress, ExportError } from '@/lib/export/playlist-exporter';
 
-export type { ExportMode };
+export type { ExportMode, ExportProgress, ExportError };
 
 export interface ExportOptions {
   mode: ExportMode;

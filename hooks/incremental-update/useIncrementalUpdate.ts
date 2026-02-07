@@ -38,7 +38,6 @@ export function useIncrementalUpdate({
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [result, setResult] = useState<UpdateResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const abortControllerRef = useState<AbortController | null>(null)[1];
 
   const startUpdate = useCallback(
     async (

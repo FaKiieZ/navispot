@@ -64,8 +64,6 @@ export class IncrementalUpdateOrchestrator {
     cachedMatches?: Record<string, CachedTrackMatch>,
     signal?: AbortSignal
   ): Promise<IncrementalTrackMatch[]> {
-    const startTime = Date.now();
-
     // Fetch current Navidrome playlist tracks
     const playlistData = await this.navidromeClient.getPlaylistWithFullTracks(
       navidromePlaylistId,
