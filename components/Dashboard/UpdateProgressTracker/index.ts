@@ -1,2 +1,2 @@
 export { UpdateProgressTracker } from './UpdateProgressTracker';
-export type { default as UpdateProgressTrackerProps } from './UpdateProgressTracker';
+export type { UpdateProgressTrackerProps } from './UpdateProgressTracker';

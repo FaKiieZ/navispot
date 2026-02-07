@@ -2,7 +2,7 @@
 
 import { UpdateResult } from '@/lib/export/incremental-update-orchestrator';
 
-interface UpdateResultsReportProps {
+export interface UpdateResultsReportProps {
   result: UpdateResult;
   onDone: () => void;
   onUpdateAgain: () => void;

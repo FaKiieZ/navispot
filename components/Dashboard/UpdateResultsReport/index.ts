@@ -1,2 +1,2 @@
 export { UpdateResultsReport } from './UpdateResultsReport';
-export type { default as UpdateResultsReportProps } from './UpdateResultsReport';
+export type { UpdateResultsReportProps } from './UpdateResultsReport';

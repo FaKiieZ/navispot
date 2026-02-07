@@ -2,7 +2,7 @@
 
 import { ExportProgress } from '@/types/export';
 
-interface UpdateProgressTrackerProps {
+export interface UpdateProgressTrackerProps {
   progress: ExportProgress;
   onCancel: () => void;
   onPause?: () => void;
