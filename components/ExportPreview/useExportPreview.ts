@@ -31,12 +31,15 @@ export function useExportPreview({ statistics, existingPlaylists = [] }: UseExpo
     if (selectedMode === 'create') {
       return estimatedExported > 0;
     }
-    return estimatedExported > 0 && selectedPlaylistId !== undefined;
+    if (selectedMode === 'append' || selectedMode === 'overwrite' || selectedMode === 'update') {
+      return estimatedExported > 0 && selectedPlaylistId !== undefined;
+    }
+    return estimatedExported > 0;
   }, [selectedMode, selectedPlaylistId, estimatedExported]);
 
   const setMode = useCallback((mode: ExportMode) => {
     setSelectedMode(mode);
-    if (mode !== 'append' && mode !== 'overwrite') {
+    if (mode !== 'append' && mode !== 'overwrite' && mode !== 'update') {
       setSelectedPlaylistId(undefined);
     }
   }, []);

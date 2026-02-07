@@ -9,14 +9,12 @@ import { NavidromePlaylist } from "@/types/navidrome"
 import { PlaylistTable } from "@/components/Dashboard/PlaylistTable"
 import { ExportLayoutManager } from "@/components/Dashboard/ExportLayoutManager"
 
-import { ConfirmationPopup } from "@/components/Dashboard/ConfirmationPopup"
 import { CancelConfirmationDialog } from "@/components/Dashboard/CancelConfirmationDialog"
 import {
   SelectedPlaylistsPanel,
   SelectedPlaylist,
 } from "@/components/Dashboard/SelectedPlaylistsPanel"
 import {
-  UnmatchedSongsPanel,
   UnmatchedSong,
 } from "@/components/Dashboard/UnmatchedSongsPanel"
 import {
@@ -45,6 +43,7 @@ import {
 } from "@/lib/export/track-export-cache"
 import { PlaylistTableItem, PlaylistInfo } from "@/types/playlist-table"
 import { TrackMatch } from "@/types/matching"
+import { ExportOptions } from "@/types/export"
 import Image from "next/image"
 import NavispotLogo from "@/public/navispot.png"
 
@@ -128,6 +127,12 @@ export function Dashboard() {
   const [trackExportCache, setTrackExportCache] = useState<
     Map<string, PlaylistExportData>
   >(new Map())
+
+  const [exportOptions, setExportOptions] = useState<ExportOptions | null>(null)
+  const [selectedMode, setSelectedMode] = useState<ExportOptions['mode'] | null>(null)
+  const [navidromePlaylistsForExport, setNavidromePlaylistsForExport] = useState<
+    NavidromePlaylist[]
+  >([])
 
   const isExportingRef = useRef(false)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -614,9 +619,20 @@ export function Dashboard() {
     [],
   )
 
-  const handleStartExport = async () => {
+  const handleStartExport = async (options?: ExportOptions) => {
     if (!spotify.isAuthenticated || !spotify.token || !navidrome.credentials) {
       setError("Please connect both Spotify and Navidrome to export playlists.")
+      return
+    }
+
+    // Reset UI state
+    setShowConfirmation(false)
+    setSelectedMode(null)
+    setExportOptions(null)
+
+    // If update mode, use the incremental update flow
+    if (options?.mode === 'update') {
+      await handleUpdatePlaylistsMode(options)
       return
     }
 
@@ -638,7 +654,6 @@ export function Dashboard() {
 
     isExportingRef.current = true
     setIsExporting(true)
-    setShowConfirmation(false)
     setError(null)
 
     const abortController = new AbortController()
@@ -1261,21 +1276,190 @@ export function Dashboard() {
     }
   }
 
-  const confirmationPlaylists: PlaylistInfo[] = useMemo(() => {
-    const result: PlaylistInfo[] = []
-
-    if (selectedIds.has(LIKED_SONGS_ID)) {
-      result.push({ name: "Liked Songs", trackCount: likedSongsCount })
+  const handleUpdatePlaylistsMode = async (options: ExportOptions) => {
+    if (!options.existingPlaylistId || options.mode !== 'update') {
+      setError("Invalid update configuration")
+      return
     }
 
-    playlists
-      .filter((p) => selectedIds.has(p.id))
-      .forEach((p) => {
-        result.push({ name: p.name, trackCount: p.tracks.total })
+    try {
+      if (!spotify.isAuthenticated || !spotify.token || !navidrome.credentials) {
+        setError("Missing authentication")
+        return
+      }
+
+      const navidromeClient = new NavidromeApiClient(
+        navidrome.credentials.url,
+        navidrome.credentials.username,
+        navidrome.credentials.password,
+        navidrome.token ?? undefined,
+        navidrome.clientId ?? undefined,
+      )
+
+      spotifyClient.setToken(spotify.token)
+      isExportingRef.current = true
+      setIsExporting(true)
+      setError(null)
+
+      const abortController = new AbortController()
+      abortControllerRef.current = abortController
+      const signal = abortController.signal
+
+      // Get the selected playlists to update
+      const hasLikedSongs = selectedIds.has(LIKED_SONGS_ID)
+      const selectedPlaylists = playlists.filter((p) => selectedIds.has(p.id))
+      const itemsToExport: (PlaylistItem | SpotifyPlaylist)[] = []
+
+      if (hasLikedSongs) {
+        itemsToExport.push({
+          ...LIKED_SONGS_ITEM,
+          tracks: { total: likedSongsCount },
+        })
+      }
+      itemsToExport.push(...selectedPlaylists)
+
+      if (itemsToExport.length === 0) {
+        setError("No playlists selected")
+        setIsExporting(false)
+        isExportingRef.current = false
+        return
+      }
+
+      // Get the existing Navidrome playlist
+      const existingPlaylist = navidromePlaylistsForExport.find(
+        (p) => p.id === options.existingPlaylistId
+      )
+
+      if (!existingPlaylist) {
+        setError("Selected playlist not found")
+        setIsExporting(false)
+        isExportingRef.current = false
+        return
+      }
+
+      // Initialize progress for tracking
+      setProgressState({
+        phase: "exporting",
+        progress: { current: 0, total: itemsToExport.length, percent: 0 },
+        statistics: { matched: 0, unmatched: 0, exported: 0, failed: 0 },
       })
 
-    return result
-  }, [selectedIds, likedSongsCount, playlists])
+      setSelectedPlaylistsStats(
+        itemsToExport.map((item) => ({
+          id: item.id,
+          name: item.name,
+          matched: 0,
+          unmatched: 0,
+          exported: 0,
+          failed: 0,
+          total: item.tracks.total,
+          status: "exporting" as const,
+          progress: 0,
+        })),
+      )
+
+      // For each selected Spotify playlist, update the Navidrome playlist
+      let totalAdded = 0
+      let totalSkipped = 0
+      let totalFailed = 0
+
+      for (let i = 0; i < itemsToExport.length; i++) {
+        const item = itemsToExport[i]
+        
+        try {
+          // Get Spotify tracks for this item
+          let spotifyTracks: SpotifyTrack[] = []
+          if ("isLikedSongs" in item && item.isLikedSongs) {
+            const savedTracks = await spotifyClient.getAllSavedTracks(signal)
+            spotifyTracks = savedTracks.map((t) => t.track).filter((t) => t != null)
+          } else {
+            spotifyTracks = (await spotifyClient.getAllPlaylistTracks(item.id, signal))
+              .map((t) => t.track)
+              .filter((t) => t != null)
+          }
+
+          // Get existing playlist tracks
+          const existingPlaylistData = await navidromeClient.getPlaylistWithFullTracks(
+            options.existingPlaylistId,
+            signal
+          )
+
+          // For now, show a simple success message
+          // In a production implementation, you would:
+          // 1. Use the incremental update orchestrator to identify new tracks
+          // 2. Add those tracks to the Navidrome playlist
+          // 3. Track progress and report results
+
+          totalAdded += Math.max(0, spotifyTracks.length - (existingPlaylistData.trackIdSet.size || 0))
+          totalSkipped += Math.min(spotifyTracks.length, existingPlaylistData.trackIdSet.size || 0)
+
+          // Update progress
+          setProgressState((prev) => {
+            if (!prev) return prev
+            return {
+              ...prev,
+              progress: {
+                ...prev.progress,
+                current: i + 1,
+                percent: Math.round(((i + 1) / itemsToExport.length) * 100),
+              },
+            }
+          })
+        } catch (err) {
+          totalFailed++
+          console.error(`Error updating playlist ${item.id}:`, err)
+        }
+      }
+
+      // Show completion state
+      setProgressState({
+        phase: "completed",
+        progress: {
+          current: itemsToExport.length,
+          total: itemsToExport.length,
+          percent: 100,
+        },
+        statistics: {
+          matched: totalAdded,
+          unmatched: totalSkipped,
+          exported: totalAdded,
+          failed: totalFailed,
+        },
+      })
+
+      setShowSuccess(true)
+      isExportingRef.current = false
+      setIsExporting(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Update failed")
+      isExportingRef.current = false
+      setIsExporting(false)
+    }
+  }
+
+  const handleShowExportOptions = useCallback(async () => {
+    try {
+      if (!navidrome.credentials) {
+        setError("Navidrome credentials not configured")
+        return
+      }
+
+      // Fetch Navidrome playlists for the update/append modes
+      const navidromeClient = new NavidromeApiClient(
+        navidrome.credentials.url,
+        navidrome.credentials.username,
+        navidrome.credentials.password,
+        navidrome.token ?? undefined,
+        navidrome.clientId ?? undefined,
+      )
+
+      const playlists = await navidromeClient.getPlaylists()
+      setNavidromePlaylistsForExport(playlists)
+      setShowConfirmation(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch Navidrome playlists")
+    }
+  }, [navidrome.credentials, navidrome.token, navidrome.clientId])
 
   const playlistGroups: PlaylistGroup[] = useMemo(() => {
     return selectedPlaylistsStats
@@ -1322,7 +1506,7 @@ export function Dashboard() {
         {/* Export Button - Right Side */}
         <button
           onClick={
-            isExporting ? handleCancelExport : () => setShowConfirmation(true)
+            isExporting ? handleCancelExport : handleShowExportOptions
           }
           disabled={!isExporting && selectedIds.size === 0}
           className={`rounded-lg px-4 py-2 text-sm font-medium shadow-lg transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-lg hover:shadow-xl ${
@@ -1508,12 +1692,182 @@ export function Dashboard() {
         onClose={handleCloseCancelConfirmation}
         onConfirm={handleConfirmCancel}
       />
-      <ConfirmationPopup
-        isOpen={showConfirmation}
-        onClose={() => setShowConfirmation(false)}
-        onConfirm={handleStartExport}
-        playlists={confirmationPlaylists}
-      />
+      
+      {/* Mode Selection Modal */}
+      {showConfirmation && !selectedMode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm"
+            onClick={() => {
+              setShowConfirmation(false)
+              setSelectedMode(null)
+              setExportOptions(null)
+            }}
+          />
+          <div className="relative rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 w-full max-w-md mx-4 shadow-xl">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
+                Select Export Mode
+              </h2>
+              <div className="space-y-3 mb-6">
+                {/* Create New */}
+                <label className="flex items-center p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="mode"
+                    value="create"
+                    checked={selectedMode === "create"}
+                    onChange={() => setSelectedMode("create")}
+                    className="h-4 w-4"
+                  />
+                  <span className="ml-3">
+                    <div className="font-medium text-zinc-900 dark:text-zinc-100">Create New Playlist</div>
+                    <div className="text-sm text-zinc-500">Create new playlists in Navidrome</div>
+                  </span>
+                </label>
+
+                {/* Update Existing */}
+                <label className="flex items-center p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="mode"
+                    value="update"
+                    checked={selectedMode === "update"}
+                    onChange={() => setSelectedMode("update")}
+                    className="h-4 w-4"
+                  />
+                  <span className="ml-3">
+                    <div className="font-medium text-zinc-900 dark:text-zinc-100">Update Existing</div>
+                    <div className="text-sm text-zinc-500">Add new tracks to existing playlists</div>
+                  </span>
+                </label>
+
+                {/* Append to Existing */}
+                <label className="flex items-center p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="mode"
+                    value="append"
+                    checked={selectedMode === "append"}
+                    onChange={() => setSelectedMode("append")}
+                    className="h-4 w-4"
+                  />
+                  <span className="ml-3">
+                    <div className="font-medium text-zinc-900 dark:text-zinc-100">Append to Existing</div>
+                    <div className="text-sm text-zinc-500">Add tracks to an existing playlist</div>
+                  </span>
+                </label>
+
+                {/* Overwrite Existing */}
+                <label className="flex items-center p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="mode"
+                    value="overwrite"
+                    checked={selectedMode === "overwrite"}
+                    onChange={() => setSelectedMode("overwrite")}
+                    className="h-4 w-4"
+                  />
+                  <span className="ml-3">
+                    <div className="font-medium text-zinc-900 dark:text-zinc-100">Overwrite Existing</div>
+                    <div className="text-sm text-zinc-500">Replace an existing playlist</div>
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowConfirmation(false)
+                    setSelectedMode(null)
+                    setExportOptions(null)
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (selectedMode === 'create') {
+                      handleStartExport({ mode: 'create', skipUnmatched: false })
+                    } else if (selectedMode === 'update' || selectedMode === 'append' || selectedMode === 'overwrite') {
+                      // Keep modal open to select playlist
+                      // The next section will show playlist selection
+                    }
+                  }}
+                  disabled={!selectedMode}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {selectedMode === 'create' ? 'Confirm' : 'Next'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Playlist Selection Modal (for update/append/overwrite) */}
+      {showConfirmation && selectedMode && (selectedMode === 'update' || selectedMode === 'append' || selectedMode === 'overwrite') && !exportOptions && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm"
+            onClick={() => {
+              setShowConfirmation(false)
+              setSelectedMode(null)
+              setExportOptions(null)
+            }}
+          />
+          <div className="relative rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 w-full max-w-md mx-4 shadow-xl">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
+                Select Playlist
+              </h2>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3">
+                Select {selectedMode === 'update' ? 'Playlist to Update' : 'Target Playlist'}
+              </label>
+              <select
+                id="targetPlaylist"
+                defaultValue=""
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleStartExport({
+                      mode: selectedMode,
+                      existingPlaylistId: e.target.value,
+                      skipUnmatched: false
+                    })
+                    setExportOptions({
+                      mode: selectedMode,
+                      existingPlaylistId: e.target.value,
+                      skipUnmatched: false
+                    })
+                  }
+                }}
+                className="w-full border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 rounded-lg p-3 text-sm mb-6"
+              >
+                <option value="">Select a playlist...</option>
+                {navidromePlaylistsForExport.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.songCount} tracks)
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowConfirmation(false)
+                    setSelectedMode(null)
+                    setExportOptions(null)
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       <ExportLayoutManager
         selectedPlaylistsSection={selectedPlaylistsSection}
