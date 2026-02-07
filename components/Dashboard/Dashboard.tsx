@@ -436,7 +436,7 @@ export function Dashboard() {
                 tracks = playlistTracks.map((t) => t.track)
               }
 
-              const songs: Song[] = tracks.map((track) => ({
+              const songs: Song[] = tracks.filter(t => !!t).map((track) => ({
                 spotifyTrackId: track.id,
                 title: track.name,
                 album: track.album?.name || "Unknown",
