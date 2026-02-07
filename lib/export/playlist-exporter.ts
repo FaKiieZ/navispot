@@ -1,7 +1,7 @@
 import { NavidromeApiClient, parseExportMetadata } from '@/lib/navidrome/client';
 import { TrackMatch } from '@/types/matching';
 
-export type ExportMode = 'create' | 'append' | 'overwrite' | 'update';
+export type ExportMode = 'create' | 'append' | 'overwrite' | 'update' | 'sync';
 
 interface PlaylistExportData {
   spotifyPlaylistId: string;
@@ -75,6 +75,7 @@ export interface PlaylistExporter {
   createPlaylist(name: string, songIds: string[]): Promise<{ id: string; success: boolean }>;
   appendToPlaylist(playlistId: string, songIds: string[]): Promise<{ success: boolean }>;
   overwritePlaylist(playlistId: string, songIds: string[]): Promise<{ success: boolean }>;
+  syncPlaylist(playlistId: string, songIds: string[]): Promise<{ success: boolean; addedCount: number }>;
 }
 
 export class DefaultPlaylistExporter implements PlaylistExporter {
@@ -248,6 +249,18 @@ export class DefaultPlaylistExporter implements PlaylistExporter {
 
           exported = newMatches.length;
           playlistId = options.existingPlaylistId;
+          exported = newMatches.length;
+          playlistId = options.existingPlaylistId;
+          break;
+        }
+        case 'sync': {
+          if (!options.existingPlaylistId) {
+            throw new Error('existingPlaylistId is required for sync mode');
+          }
+          const songIds = matchedTracks.map((m) => m.navidromeSong!.id);
+          const result = await this.syncPlaylist(options.existingPlaylistId, songIds, signal);
+          exported = result.success ? result.addedCount : 0;
+          playlistId = options.existingPlaylistId;
           break;
         }
       }
@@ -314,6 +327,29 @@ export class DefaultPlaylistExporter implements PlaylistExporter {
     return {
       success: result.success,
     };
+  }
+
+  async syncPlaylist(playlistId: string, songIds: string[], signal?: AbortSignal): Promise<{ success: boolean; addedCount: number }> {
+    try {
+      const currentPlaylist = await this.navidromeClient.getPlaylist(playlistId, signal);
+      // When fetching tracks from a playlist, the 'id' is the playlist entry ID,
+      // and 'mediaFileId' is the actual song ID. Passing 'mediaFileId' is required for correct matching.
+      const currentTrackIds = new Set(currentPlaylist.tracks.map((t) => t.mediaFileId || t.id));
+
+      const newSongIds = songIds.filter((id) => !currentTrackIds.has(id));
+
+      if (newSongIds.length === 0) {
+        return { success: true, addedCount: 0 };
+      }
+
+      const result = await this.navidromeClient.updatePlaylist(playlistId, newSongIds, undefined, signal);
+      return {
+        success: result.success,
+        addedCount: result.success ? newSongIds.length : 0,
+      };
+    } catch {
+      return { success: false, addedCount: 0 };
+    }
   }
 }
 
