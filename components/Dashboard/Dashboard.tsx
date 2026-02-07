@@ -426,7 +426,7 @@ export function Dashboard() {
         await Promise.all(
           uncachedIds.map(async (id) => {
             try {
-              let tracks
+              let tracks: (SpotifyTrack | null)[]
               if (id === LIKED_SONGS_ID) {
                 const savedTracks = await spotifyClient.getAllSavedTracks()
                 tracks = savedTracks.map((t) => t.track)
@@ -436,17 +436,17 @@ export function Dashboard() {
                 tracks = playlistTracks.map((t) => t.track)
               }
 
-              const songs: Song[] = tracks.filter(t => !!t).map((track) => {
-                console.log("Mapping track:", track)
+              const validTracks = tracks.filter((t): t is SpotifyTrack => t !== null && t !== undefined)
+              const songs: Song[] = validTracks.map((track) => {
                 return {
-                spotifyTrackId: track.id,
-                title: track.name,
-                album: track.album?.name || "Unknown",
-                artist:
-                  track.artists?.map((a) => a.name).join(", ") || "Unknown",
-                duration: formatDuration(track.duration_ms),
-              }}
-            )
+                  spotifyTrackId: track.id,
+                  title: track.name,
+                  album: track.album?.name || "Unknown",
+                  artist:
+                    track.artists?.map((a) => a.name).join(", ") || "Unknown",
+                  duration: formatDuration(track.duration_ms),
+                }
+              })
 
               newCache.set(id, songs)
 
