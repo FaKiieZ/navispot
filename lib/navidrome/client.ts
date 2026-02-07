@@ -225,12 +225,18 @@ export class NavidromeApiClient {
       const response = await this._makeNativeRequest<{
         items: NavidromePlaylist[];
       }>('/api/playlist', params, signal);
+      
+      console.log('getPlaylists response:', JSON.stringify(response).substring(0, 200));
+      console.log('totalCount:', this._totalCount);
 
-      if (response.items && response.items.length > 0) {
-        allPlaylists.push(...response.items.map(this._mapPlaylist));
+      if (Array.isArray(response)) {
+          // Handle case where response is directly an array
+         allPlaylists.push(...response.map(item => this._mapPlaylist(item)));
+      } else if (response.items && response.items.length > 0) {
+        allPlaylists.push(...response.items.map(item => this._mapPlaylist(item)));
       }
 
-      if (allPlaylists.length >= this._totalCount || !response.items || response.items.length === 0) {
+      if (allPlaylists.length >= this._totalCount || (!Array.isArray(response) && (!response.items || response.items.length === 0))) {
         break;
       }
 
