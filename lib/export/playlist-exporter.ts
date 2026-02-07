@@ -334,7 +334,16 @@ export class DefaultPlaylistExporter implements PlaylistExporter {
       const currentPlaylist = await this.navidromeClient.getPlaylist(playlistId, signal);
       const currentTrackIds = new Set(currentPlaylist.tracks.map((t) => t.id));
 
+      console.log(`Sync Debug: Playlist ${playlistId} has ${currentPlaylist.tracks.length} tracks.`);
+      if (currentPlaylist.tracks.length > 0) {
+          console.log(`Sync Debug: First existing track ID: ${currentPlaylist.tracks[0].id}`);
+      }
+      if (songIds.length > 0) {
+          console.log(`Sync Debug: First new song ID: ${songIds[0]}`);
+      }
+
       const newSongIds = songIds.filter((id) => !currentTrackIds.has(id));
+      console.log(`Sync Debug: Found ${newSongIds.length} new songs to add out of ${songIds.length} candidates.`);
 
       if (newSongIds.length === 0) {
         return { success: true, addedCount: 0 };
