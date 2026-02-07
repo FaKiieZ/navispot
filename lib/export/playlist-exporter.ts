@@ -337,6 +337,11 @@ export class DefaultPlaylistExporter implements PlaylistExporter {
       console.log(`Sync Debug: Playlist ${playlistId} has ${currentPlaylist.tracks.length} tracks.`);
       if (currentPlaylist.tracks.length > 0) {
           console.log(`Sync Debug: First existing track ID: ${currentPlaylist.tracks[0].id}`);
+          console.log(`Sync Debug: First existing track FULL: ${JSON.stringify(currentPlaylist.tracks[0])}`);
+          // @ts-ignore
+          if (currentPlaylist.tracks[0].songId) console.log(`Sync Debug: Found songId: ${currentPlaylist.tracks[0].songId}`);
+          // @ts-ignore
+          if (currentPlaylist.tracks[0].entry_id) console.log(`Sync Debug: Found entry_id: ${currentPlaylist.tracks[0].entry_id}`);
       }
       if (songIds.length > 0) {
           console.log(`Sync Debug: First new song ID: ${songIds[0]}`);
